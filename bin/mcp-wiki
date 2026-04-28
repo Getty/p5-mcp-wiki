@@ -1,0 +1,66 @@
+#!/usr/bin/env perl
+# ABSTRACT: CLI runner for MCP::Wiki server
+# PODNAME: mcp-wiki
+
+use strict;
+use warnings;
+use MCP::Wiki::Server;
+use Getopt::Long;
+use Pod::Usage;
+
+my $wiki_root = '.';
+my $use_git = 0;
+my $commit_reason_required = 0;
+my $help = 0;
+
+GetOptions(
+    'wiki-root=s' => \$wiki_root,
+    'git' => \$use_git,
+    'commit-reason-required' => \$commit_reason_required,
+    'help' => \$help,
+) or pod2usage(2);
+
+pod2usage(1) if $help;
+
+my $server = MCP::Wiki::Server->new(
+    wiki_root => $wiki_root,
+    use_git => $use_git,
+    commit_reason_required => $commit_reason_required,
+);
+
+if ($use_git) {
+    $server->on_change(sub ($event) {
+        # TODO: git auto-commit via MCP::Wiki::Git
+        warn "on_change fired: $event->{type} on $event->{page}";
+    });
+}
+
+$server->to_stdio;
+
+__END__
+
+=head1 SYNOPSIS
+
+    mcp-wiki --wiki-root /path/to/wiki --git
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<--wiki-root>
+
+Root directory for wiki pages (default: current directory)
+
+=item B<--git>
+
+Enable git auto-commit on changes
+
+=item B<--commit-reason-required>
+
+Require a reason for commits
+
+=item B<--help>
+
+Show this help message
+
+=back
