@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
+# Create initial non-root user
 RUN groupadd --gid 1000 appgroup && \
     useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash appuser
 
@@ -43,15 +43,16 @@ WORKDIR /home/appuser
 COPY --from=build /usr/local/lib/perl5/site_perl /usr/local/lib/perl5/site_perl
 COPY --from=build /usr/local/bin/mcp-wiki /usr/local/bin/mcp-wiki
 
-# Copy wiki root (empty, for data persistence)
-RUN mkdir -p /home/appuser/wiki && chown -R appuser:appgroup /home/appuser
+# Copy wiki root (empty, for data persistence) and entrypoint
+COPY --from=build /build/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER appuser
+RUN mkdir -p /wiki && chown -R appuser:appgroup /wiki
 
 ENV PERL5LIB=/usr/local/lib/perl5/site_perl/5.40.3:/usr/local/lib/perl5/site_perl/5.40.3/x86_64-linux-gnu
-ENV MCP_WIKI_ROOT=/home/appuser/wiki
+ENV MCP_WIKI_ROOT=/wiki
 
 EXPOSE 8080
 
-ENTRYPOINT ["/usr/local/bin/mcp-wiki"]
-CMD ["--wiki-root", "/home/appuser/wiki"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["--wiki-root", "/wiki"]
