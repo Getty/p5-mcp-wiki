@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/local/bin/perl
 # ABSTRACT: CLI runner for MCP::Wiki server
 # PODNAME: mcp-wiki
 
@@ -29,9 +29,9 @@ my $server = MCP::Wiki::Server->new(
 );
 
 if ($use_git) {
-    $server->on_change(sub ($event) {
-        # TODO: git auto-commit via MCP::Wiki::Git
-        warn "on_change fired: $event->{type} on $event->{page}";
+    $server->on_change(sub {
+        my $ev = shift;
+        warn "on_change fired: $ev->{type} on $ev->{page}";
     });
 }
 

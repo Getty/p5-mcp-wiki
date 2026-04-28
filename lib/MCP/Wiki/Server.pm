@@ -51,6 +51,18 @@ has _on_change_handlers => (
     default => sub { [] },
 );
 
+has git_history => (
+    is => 'lazy',
+);
+
+sub _build_git_history {
+    my ($self) = @_;
+    return unless $self->use_git;
+    return unless eval { require Git::Raw; 1 };
+    require MCP::Wiki::Git::History;
+    return MCP::Wiki::Git::History->new(wiki_root => $self->wiki_root);
+}
+
 sub BUILD {
     my ($self) = @_;
     $self->_setup_tools;
@@ -389,6 +401,120 @@ sub _setup_tools {
             });
         },
     );
+
+    # Tool: get_section_history
+    $server->tool(
+        name        => 'get_section_history',
+        description => 'Get commit history for a section identified by heading path',
+        input_schema => {
+            type => 'object',
+            properties => {
+                page => {
+                    type => 'string',
+                    description => 'Page name',
+                },
+                heading_path => {
+                    type => 'string',
+                    description => 'Heading path (e.g. "Introduction#Background")',
+                },
+                root_dir => {
+                    type => 'string',
+                    description => 'Optional: override wiki root directory',
+                },
+            },
+            required => ['page', 'heading_path'],
+        },
+        code => sub ($tool, $args) {
+            my $git = $self->git_history;
+            unless ($git) {
+                return $tool->text_result("Git history not available (git may not be enabled)", 1);
+            }
+
+            my @commits = $git->get_section_commits($args->{page}, $args->{heading_path});
+            return $tool->structured_result({
+                page         => $args->{page},
+                heading_path => $args->{heading_path},
+                commits      => \@commits,
+                count        => scalar(@commits),
+            });
+        },
+    );
+
+    # Tool: restore_section
+    $server->tool(
+        name        => 'restore_section',
+        description => 'Restore a section from a historical commit',
+        input_schema => {
+            type => 'object',
+            properties => {
+                page => {
+                    type => 'string',
+                    description => 'Page name',
+                },
+                heading_path => {
+                    type => 'string',
+                    description => 'Heading path to restore',
+                },
+                commit_hash => {
+                    type => 'string',
+                    description => 'Git commit hash to restore from',
+                },
+                reason => {
+                    type => 'string',
+                    description => 'Reason for the restore (used as git commit message)',
+                },
+                root_dir => {
+                    type => 'string',
+                    description => 'Optional: override wiki root directory',
+                },
+            },
+            required => ['page', 'heading_path', 'commit_hash'],
+        },
+        code => sub ($tool, $args) {
+            my $git = $self->git_history;
+            unless ($git) {
+                return $tool->text_result("Git history not available (git may not be enabled)", 1);
+            }
+
+            my $doc = eval { $self->_create_document($args->{page}, $args->{root_dir}) };
+            if ($@) {
+                return $tool->text_result("Invalid page: $@", 1);
+            }
+
+            my $current_content = $doc->content;
+            my $result = $git->restore_section(
+                $args->{page},
+                $args->{heading_path},
+                $args->{commit_hash},
+                { current_content => $current_content }
+            );
+
+            if ($result->{conflict}) {
+                return $tool->structured_result($result);
+            }
+
+            # Apply the restored content
+            eval { $doc->set_paragraph($args->{heading_path}, $result->{content}) };
+            if ($@) {
+                return $tool->text_result("Restore failed: $@", 1);
+            }
+
+            $self->_fire_on_change({
+                type         => 'restore',
+                page         => $args->{page},
+                heading_path => $args->{heading_path},
+                commit_hash  => $args->{commit_hash},
+                reason       => $args->{reason},
+            });
+
+            return $tool->structured_result({
+                success       => 1,
+                page          => $args->{page},
+                heading_path  => $args->{heading_path},
+                restored_from => $result->{restored_from},
+            });
+        },
+    );
 }
 
 sub _build_server {
@@ -404,11 +530,46 @@ sub on_change {
 
 sub _fire_on_change {
     my ($self, $event) = @_;
+
+    # Auto-commit via git if enabled
+    if ($self->use_git && $event->{type} ne 'restore') {
+        my $git = $self->git_history;
+        if ($git) {
+            my $message = $self->_commit_message_for_event($event);
+            my $reason = $event->{reason};
+            eval {
+                $git->auto_commit(
+                    $event->{page},
+                    $message,
+                    (defined $reason ? (reason => $reason) : ()),
+                );
+            };
+            warn "Git auto-commit error: $@" if $@;
+        }
+    }
+
+    # Call user handlers
     for my $handler (@{$self->_on_change_handlers}) {
         eval { $handler->($event) };
-        # Log errors but don't fail the operation
         warn "on_change error: $@" if $@;
     }
+}
+
+sub _commit_message_for_event {
+    my ($self, $event) = @_;
+    my %messages = (
+        create  => "Created page",
+        update  => "Updated page",
+        rename  => "Renamed page",
+        delete  => "Deleted page",
+    );
+    my $type = $event->{type} // 'unknown';
+    my $page = $event->{page} // '';
+    my $heading = $event->{heading_path} // '';
+    if ($heading) {
+        return "$messages{$type}: $page ($heading)";
+    }
+    return "$messages{$type}: $page";
 }
 
 sub to_stdio {
@@ -429,9 +590,10 @@ __END__
         use_git   => 1,
     );
 
-    $server->on_change(sub ($event) {
-        if ($event->{type} eq 'update') {
-            say "Page updated: $event->{page}";
+    $server->on_change(sub {
+        my $ev = shift;
+        if ($ev->{type} eq 'update') {
+            say "Page updated: $ev->{page}";
         }
     });
 
