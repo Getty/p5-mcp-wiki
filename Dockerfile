@@ -22,7 +22,7 @@ RUN cpanm --installdeps --cpanfile cpanfile --notest
 COPY . .
 
 # Build with dzil and install the tarball
-RUN cpanm --notest Dist::Zilla Dist::Zilla::PluginBundle::Author::GETTY && \
+RUN cpanm --notest Dist::Zilla Dist::Zilla::PluginBundle::Author::GETTY Dist::Zilla::Plugin::Docker::API && \
     dzil build && cpanm ./MCP-Wiki-*.tar.gz && rm -f ./MCP-Wiki-*.tar.gz
 
 # Runtime stage
