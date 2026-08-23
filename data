@@ -1,0 +1,18 @@
+---
+class: standard
+created: 2026-08-23T14:25:47Z
+id: 6
+priority: medium
+status: backlog
+tags:
+- test
+title: Tests adressieren Tools ueber den Index
+updated: 2026-08-23T14:25:47Z
+---
+
+t/35-server-tools.t greift auf $server->server->tools->[0] / ->[3] zu. Jede Einfuegung in _setup_tools verschiebt die Indizes -- die Tests bleiben gruen und testen ein anderes Tool.
+
+Ersetzen durch:
+  my ($t) = grep { $_->name eq "create_page" } @{$server->server->tools};
+
+Zweiter Punkt am selben Ort: die Assertions regexen ueber den JSON-Text aus structured_result. Dekodieren und auf der Datenstruktur assertieren.
