@@ -1,0 +1,22 @@
+---
+class: standard
+created: 2026-08-23T14:25:42Z
+id: 5
+priority: high
+status: backlog
+tags:
+- release
+- deps
+title: cpanfile stimmt nicht mit dem Code ueberein
+updated: 2026-08-23T14:25:42Z
+---
+
+Undeklariert, aber benutzt:
+  Git::Raw       (lib/MCP/Wiki/Git/History.pm, Git.pm) -- laedt per eval require, degradiert sauber -> gehoert unter recommends/suggests, nicht requires
+  Types::Standard (lib/MCP/Wiki/TOC/Entry.pm)
+
+Deklariert, aber nirgends benutzt:
+  Markdown::Perl
+  Syntax::Keyword::Try
+
+Blockt einen Release: eine Installation ohne Git::Raw ist gewollt, eine ohne Types::Standard funktioniert nur zufaellig ueber die Moo-Abhaengigkeitskette.
