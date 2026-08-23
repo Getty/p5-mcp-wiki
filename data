@@ -1,0 +1,24 @@
+---
+class: standard
+created: 2026-08-23T14:25:29Z
+id: 2
+priority: high
+status: backlog
+tags:
+- bug
+- document
+title: get_paragraph und set_paragraph sind nicht round-trip-faehig
+updated: 2026-08-23T14:25:29Z
+---
+
+get_paragraph liefert die Section inklusive Ueberschriftszeile (line_start-1 .. line_end-1). set_paragraph splict ab Offset line_start (also ab der Zeile NACH der Ueberschrift), aber mit Laenge line_end - line_start + 1 -- eine Zeile zu viel.
+
+Verifiziert: set_paragraph("Intro#Alpha", "NEU") auf
+  # Intro / intro text / ## Alpha / alpha text / ## Beta / beta text
+ergibt
+  # Intro / intro text / ## Alpha / NEU / beta text / ...
+Die Zeile "## Beta" ist verschwunden.
+
+set_paragraph(p, get_paragraph(p)->{content}) verdoppelt zusaetzlich die Ueberschrift.
+
+Zu entscheiden: enthaelt der Section-Text die Ueberschrift oder nicht? Beide Seiten muessen dieselbe Antwort geben; get_toc content_preview/char_count haengen mit dran.
