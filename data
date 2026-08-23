@@ -1,0 +1,19 @@
+---
+class: standard
+created: 2026-08-23T14:26:40Z
+id: 9
+priority: low
+status: backlog
+tags:
+- cleanup
+title: 'Toter Code: MCP::Wiki::Git und ungenutzte Attribute'
+updated: 2026-08-23T14:26:40Z
+---
+
+lib/MCP/Wiki/Git.pm hat keinen Aufrufer -- der Server benutzt ausschliesslich MCP::Wiki::Git::History. Die auto_commit-Variante dort uebergibt an create_commit einen Index-Entry als Parent-Liste und kann nicht funktionieren. Loeschen statt weiterpflegen.
+
+Weiterer ungenutzter Bestand:
+  Git/History.pm: _build_history_file / .mcp-wiki-history.json -- nie gelesen oder geschrieben
+  Document.pm: update_content_hash
+  Server.pm: commit_reason_required (Attribut + CLI-Flag, nirgends ausgewertet), Digest::SHA, to_json
+  TOC/Entry.pm: Types::Standard importiert, keine isa gesetzt
