@@ -1,0 +1,18 @@
+---
+class: standard
+created: 2026-08-23T14:25:33Z
+id: 3
+priority: high
+status: backlog
+tags:
+- bug
+- git
+title: restore_section wendet seinen Patch doppelt an
+updated: 2026-08-23T14:25:33Z
+---
+
+MCP::Wiki::Git::History::restore_section liefert in {content} bereits das VOLLSTAENDIGE neue Dokument (splice auf die aktuellen Zeilen + join).
+
+MCP::Wiki::Server reicht genau dieses Feld an $doc->set_paragraph($heading_path, $result->{content}) weiter und schreibt damit das ganze Dokument in einen einzelnen Abschnitt.
+
+Genau eine der beiden Seiten darf patchen: entweder History gibt nur den Section-Text zurueck, oder Server schreibt die Datei direkt statt ueber set_paragraph. Kein Test deckt den Pfad ab (Git::Raw ist nicht installiert).
