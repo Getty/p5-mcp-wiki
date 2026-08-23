@@ -1,0 +1,24 @@
+---
+class: standard
+created: 2026-08-23T14:25:24Z
+id: 1
+priority: high
+status: backlog
+tags:
+- bug
+- toc
+- wire-format
+title: heading_path sammelt Geschwister statt Vorfahren
+updated: 2026-08-23T14:25:24Z
+---
+
+MCP::Wiki::TOC::Parser::_build_heading_path sammelt alle vorangehenden Headings mit level <= aktuellem level, also auch Geschwister.
+
+Verifiziert an "# Intro / ## Alpha / ## Beta / # Other":
+  Alpha -> Intro#Alpha        (korrekt)
+  Beta  -> Intro#Alpha#Beta   (erwartet: Intro#Beta)
+  Other -> Intro#Other        (erwartet: Other)
+
+Folge: die Section-Adresse ist reihenfolgeabhaengig -- ein eingefuegter Geschwisterabschnitt aendert die Adresse aller folgenden Sections. Korrekt waere ein Stack, der beim Betreten eines Levels alle Eintraege >= level abraeumt.
+
+Blast radius: heading_path ist gleichzeitig Wire-Format von get_toc, Argument von vier Tools und der Schluessel, auf den die Git-Historie matcht. Ein Fix invalidiert jede Adresse, die Konsumenten bereits gespeichert haben -> ADR-wuerdig, nicht nebenbei.
