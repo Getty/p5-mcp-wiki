@@ -1,0 +1,24 @@
+---
+class: standard
+created: 2026-08-23T14:25:51Z
+id: 7
+priority: medium
+status: backlog
+tags:
+- docker
+- release
+title: Docker-Setup ist WIP und die Registry-Ziele widersprechen sich
+updated: 2026-08-23T14:25:51Z
+---
+
+Commit 9e571a6 bezeichnet das Setup selbst als "workaround, has to be removed again".
+
+- dist.ini: docker_image = localhost:5000/mcp-wiki, docker_local = 1 (nie pushen)
+- maint/release-after.pl: baut und pusht raudssus/mcp-wiki nach Docker Hub
+Beide koennen nicht gleichzeitig gelten.
+
+- Dockerfile hardcodet PERL5LIB auf die 5.40.3-site_perl-Pfade -- bricht bei jedem Perl-Bump
+- docker-entrypoint.sh re-exect ueber su - appuser -c "... $*": die Argumente werden in einer Shell neu gesplittet, ein Wiki-Pfad mit Leerzeichen bricht
+- bin/mcp-wiki hat #!/usr/local/bin/perl -- im Image richtig, fuer eine CPAN-Installation falsch; pruefen ob die Release-Kette den Shebang umschreibt
+
+Braucht eine Entscheidung, keinen inkrementellen Patch.
