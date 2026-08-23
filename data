@@ -1,0 +1,15 @@
+---
+class: standard
+created: 2026-08-23T14:26:36Z
+id: 8
+priority: low
+status: backlog
+tags:
+- docs
+title: README beschreibt get_paragraph mit falschem Argument
+updated: 2026-08-23T14:26:36Z
+---
+
+README.md dokumentiert get_paragraph mit einem Argument "heading"; das Tool nimmt heading_path. Gleicher Abgleich faellig fuer die restlichen Tool-Argumente und die CLI-Optionen in der POD von bin/mcp-wiki.
+
+Ausserdem: PLAN.md als Entwurf kennzeichnen oder nach docs/ verschieben -- es beschreibt Content-Hashing, Conflict-Marker, MCP::Wiki::Git::Blame und Async-Callbacks, die nicht existieren, und nennt Testdateien, die es nicht gibt.
