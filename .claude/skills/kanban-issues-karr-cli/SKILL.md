@@ -9,6 +9,20 @@ Git-native kanban board for multi-agent workflows. Canonical board state lives i
 `refs/karr/*`, not in a checked-in `karr/` directory. Commands materialize a
 temporary task/config view only while they run.
 
+`--json` is available on every command with an alternate rendering. `--compact`
+is not -- exactly nine render one: `board`, `config`, `context`, `dashboard`,
+`list`, `log`, `metrics`, `pick`, `show`. Anywhere else it answers
+`Unknown option: compact` with the usage and exit 2, rather than accepting the
+flag and ignoring it.
+
+## Referring to a karr id
+
+In prose -- commit subjects, card bodies, anywhere the text travels -- a karr id is
+written `k12`, never a bare `#12`: GitHub, Gitea and GitLab all resolve `#12` against
+*their own* issue 12, which is a different thing or nothing at all. This is karr's
+numbering only and says nothing about how the repository's public issue tracker is
+referenced -- that is separate, with its own notation.
+
 ## Commands
 
 ### Initialize
@@ -88,6 +102,7 @@ karr show                  # most recently updated task
 karr show --last 5         # the 5 most recent
 karr show --me             # the task you most recently acted on (re-orient)
 karr show --agent NAME     # the task most recently claimed by NAME
+karr show ID --compact     # one line per card, as list --compact
 ```
 
 ### Move task
@@ -265,6 +280,7 @@ karr config get KEY                          # get a single value
 karr config set KEY VALUE                    # set a writable value
 karr config show --defaults                  # karr's defaults, no board read
 karr config --json                           # JSON output
+karr config show --compact                   # key=value per line, no padding
 ```
 
 Writable keys: `board.name`, `board.description`, `defaults.status`, `defaults.priority`, `defaults.class`, `claim_timeout`, `lock_timeout`, `foundation.enabled`, `foundation.reason`.
@@ -313,6 +329,7 @@ karr context --sections blocked,overdue      # filter sections
 karr context --days 14                       # lookback for recently-completed
 karr context --activity-limit 10             # other agents' log entries in Recent Activity
 karr context --json                          # JSON output
+karr context --compact                       # board_name and the four counts, key=value
 ```
 
 Generates a markdown summary with sections: In Progress, Blocked, Overdue, Recently Completed, Recent Activity (other agents' log entries, newest first, bounded by `--activity-limit`, default 5). `--sections` takes the slugs `in-progress,blocked,overdue,recently-completed,activity`. Uses `<!-- BEGIN kanban-md context -->` / `<!-- END kanban-md context -->` sentinels for in-place updates.
@@ -453,6 +470,7 @@ karr log                                     # last 20 entries
 karr log --agent swift-fox                   # filter by agent
 karr log --task 5                            # filter by task
 karr log --last 50 --json                    # more entries, JSON
+karr log --compact                           # one line per entry, no padding
 ```
 
 ### Flow metrics
