@@ -2,7 +2,6 @@
 name: mcp-wiki-test-writer
 description: "Write MCP::Wiki tests with Test::More and Path::Tiny tempdirs — TOC parsing, document read/write, tool execution, on_change events. Tests never require Git::Raw, never touch a real wiki or the network. Use for test additions, regression scaffolding, and coverage of new tools."
 model: sonnet
-allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 briefing:
   skills:
     - mcp-wiki-core

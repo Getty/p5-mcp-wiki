@@ -2,7 +2,6 @@
 name: mcp-wiki-worker
 description: "Default mcp-wiki worker — implement, refactor, debug, and test code in this distribution. Pre-loaded with MCP::Wiki architecture (9 MCP tools, heading_path section identity, line-based TOC parser, optional Git::Raw history) and all Getty Perl conventions. Also owns the Dockerfile and the entrypoint. Leaves a commit-ready tree; never commits — commits belong to mcp-wiki-release-manager."
 model: inherit
-allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 briefing:
   skills:
     - mcp-wiki-core

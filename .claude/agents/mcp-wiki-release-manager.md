@@ -2,7 +2,6 @@
 name: mcp-wiki-release-manager
 description: "Owns mcp-wiki's commits and release readiness — cuts commits from the worker's commit-ready tree, writes commit messages and Changes entries, moves karr cards to done. Release audit: MCP::Wiki before release — cpanfile matches what the code actually loads, dist.ini/Docker targets consistent, Changes current, POD and README tool list in sync, dzil build clean. Workers never commit; this agent does. Never pushes, tags or releases."
 model: sonnet
-allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 briefing:
   skills:
     - getty-git-commit-style
