@@ -8,7 +8,7 @@ briefing:
     - mcp-wiki-core
     - getty-perl-core
     - getty-perl-moo
-    - kanban-issues-karr-cli
+    - kanban-issues-karr-ticket
 ---
 
 You are the mcp-wiki-test-writer for **MCP::Wiki**.

@@ -35,7 +35,7 @@ This rule depends on whether the Agent/Task tool is available to you.
 
 - **You can spawn subagents** (orchestrating main agent): Do NOT touch behavior-relevant
   code yourself — delegate. Your lane: coordinate, inspect, plan, review diffs, run
-  tests, manage git, edit non-behavioral docs. When in doubt, delegate. Why: only the
+  tests, edit non-behavioral docs. When in doubt, delegate. Why: only the
   `mcp-wiki-*` agents get their skills force-loaded via `briefing.skills`; you get no
   briefing and would touch internals with too little context.
 
@@ -43,7 +43,7 @@ This rule depends on whether the Agent/Task tool is available to you.
   |---|---|
   | Implement / refactor / debug behavior-relevant code, Docker | `mcp-wiki-worker` (default) |
   | Write/extend tests | `mcp-wiki-test-writer` |
-  | Pre-release audit | `mcp-wiki-release-checker` |
+  | Commits, `Changes`, card → done, pre-release audit | `mcp-wiki-release-manager` |
 
 - **You cannot spawn subagents** (you ARE an `mcp-wiki-*` agent): the delegation lock
   does not apply to you — implement, refactor, debug, and test per these rules.
@@ -56,14 +56,14 @@ are not.
 ## Coordination — karr board (always in scope)
 
 Ticket coordination is the orchestrating agent's job, so `karr` is always in scope —
-don't invoke the `kanban-issues-karr-cli` skill first, just use it. Git-native kanban;
+don't invoke the `kanban-issues-karr-coordination` skill first, just use it. Git-native kanban;
 state lives in `refs/karr/*`; this repo is a single distribution — one board, no
 cross-repo handoff. Day-to-day: `karr list --compact` / `karr board` for open work;
 `karr show ID` for detail; `karr create/edit/move/handoff` for the usual workflow;
 mutating commands auto-sync, `karr sync --pull|--push` for explicit exchange. Use karr
 to record decisions worth solidifying, drift to reconcile, and follow-up work that
 should not block the current change. Full command surface: skill
-`kanban-issues-karr-cli`.
+`kanban-issues-karr-coordination`.
 
 **Serialize board mutations when fanning out.** Keep implementation work parallel if you
 like, but collect results and then loop `karr move`/`handoff`/`sync` sequentially — N of
@@ -115,4 +115,4 @@ public item. Incoming tickets are NOT a queue the agent drains.
 Module loading, Moo patterns, cpanfile pinning: skills `getty-perl-core`,
 `getty-perl-moo`. `[@Author::GETTY]` bundle, POD, `{{$NEXT}}`: skill
 `getty-perl-release-author-getty`. dist.ini mechanics: `perl-release-dist-ini`. MCP
-server setup: `perl-mcp`. Commit messages: `getty-git-commit-style`. Don't duplicate.
+server setup: `perl-mcp`. Commits: only `mcp-wiki-release-manager` commits (it carries `getty-git-commit-style`). Don't duplicate.

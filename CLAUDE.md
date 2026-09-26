@@ -55,7 +55,7 @@ Prinzip und Lane stehen in `.claude/rules/mcp-wiki-rules.md`.
 |---|---|
 | Implementieren / refactoren / debuggen, Docker | `mcp-wiki-worker` (default) |
 | Tests schreiben oder erweitern | `mcp-wiki-test-writer` |
-| Pre-Release-Audit | `mcp-wiki-release-checker` |
+| Pre-Release-Audit | `mcp-wiki-release-manager` |
 
 Die Agents bekommen ihre Skills über `briefing.skills` (siehe `.claude/agents/`); der
 Main-Agent delegiert, statt sie selbst zu laden. Skill-Quellen liegen unter
