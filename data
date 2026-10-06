@@ -1,0 +1,21 @@
+---
+class: standard
+completed: 2026-10-06T22:37:11Z
+created: 2026-08-23T14:25:38Z
+id: 4
+priority: high
+started: 2026-10-06T22:37:11Z
+status: done
+tags:
+- bug
+- security
+- path
+title: wiki-root-Check ist ein reiner String-Praefix
+updated: 2026-10-06T22:37:11Z
+---
+
+Die Pfadvalidierung nutzt index($page_path, $wiki_root) == 0 bzw. substr(...) eq $root_str (Server.pm: _create_document, create_page, rename_page, delete_page). Ein Geschwisterverzeichnis mit gleichem Praefix passiert die Pruefung: /wiki-evil/x.md gilt als innerhalb von /wiki. Verifiziert.
+
+Es fehlt die Grenze -- verglichen werden muss gegen $root oder $root . "/", besser ueber Path::Tiny::subsumes.
+
+Zweiter Befund am selben Ort: create_page ruft realpath auf der noch nicht existierenden Zieldatei auf und stirbt, sobald das Zielverzeichnis fehlt ("unter/tief.md"), obwohl das input_schema Unterverzeichnisse zusagt und mkpath zwei Zeilen spaeter darauf wartet. Kanonisiert werden muss das Elternverzeichnis.
