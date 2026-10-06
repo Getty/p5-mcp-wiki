@@ -40,11 +40,14 @@ bleiben: `git_history` liefert dann `undef` und die Historie-Tools antworten sau
 Hashing, Conflict-Marker, `Git::Blame` und Async-Callbacks darin existieren nicht. Bei
 Widerspruch gewinnt `lib/`.
 
-Vier verifizierte Defekte sind bekannt und als karr-Tickets erfasst (heading_path sammelt
+Drei verifizierte Defekte sind bekannt und als karr-Tickets erfasst (heading_path sammelt
 Geschwister statt Vorfahren, get/set_paragraph sind nicht round-trip-fähig,
-restore_section wendet seinen Patch doppelt an, der wiki-root-Check ist ein reiner
-String-Präfix). Mechanik und Blast Radius stehen im Skill `mcp-wiki-core`; nicht
-nebenbei mitfixen.
+restore_section wendet seinen Patch doppelt an). Mechanik und Blast Radius stehen im
+Skill `mcp-wiki-core`; nicht nebenbei mitfixen.
+
+Eine Seite ist eine `.md`-Datei unter `wiki_root`, außerhalb von `.git`. Jeder
+Dateizugriff eines Tools läuft über `_resolve_page` in `Server.pm`; das Modell steht im
+Skill `mcp-wiki-core`, abgesichert durch `t/36-server-path-security.t`.
 
 ## Delegation
 

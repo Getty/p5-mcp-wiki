@@ -49,7 +49,8 @@ __END__
 
 =item B<--wiki-root>
 
-Root directory for wiki pages (default: current directory)
+Root directory for wiki pages (default: current directory). The tools only
+reach files below this directory; a client cannot name a different one.
 
 =item B<--git>
 

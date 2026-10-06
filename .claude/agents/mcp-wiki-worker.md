@@ -28,9 +28,9 @@ Never `git commit`: leave the tree commit-ready and report what changed and why,
 
 ## Repo-specific notes — beyond the briefed skills
 
-The four defects listed under *Sharp edges* in `mcp-wiki-core` (heading_path collecting
-siblings, the get/set_paragraph off-by-one, restore_section applying its patch twice,
-the prefix-only root check) are known and ticketed. Fix one only when that is the task;
+The three defects listed under *Sharp edges* in `mcp-wiki-core` (heading_path collecting
+siblings, the get/set_paragraph off-by-one, restore_section applying its patch twice)
+are known and ticketed. Fix one only when that is the task;
 each has a blast radius wider than it looks, because `heading_path` is simultaneously
 the wire format of `get_toc`, the address argument of four tools, and the key the git
 history matches on. **Changing how a heading_path is built changes every stored address

@@ -54,6 +54,25 @@ $server->to_stdio;
 - `use_git`: Enable git auto-commit on changes (default: 0)
 - `commit_reason_required`: Require reason for commits (default: 0)
 
+## Page names and the wiki root
+
+A page is a `.md` file below `wiki_root`; tools address it by its path relative
+to that root (`notes.md`, `projects/alpha/plan.md`). The root is fixed when the
+server starts: there is no `root_dir` tool argument, and a call that passes one
+is refused.
+
+Page names are resolved (symlinks, `..`) before use. Every tool refuses a name
+that
+
+- leads outside the root,
+- is not a `.md` file, or
+- lies below a `.git` directory (any case, any depth, also through a symlink).
+
+`list_pages` returns exactly the pages the other tools accept.
+
+To serve another directory, start a server with another `wiki_root`
+(`mcp-wiki --wiki-root /path/to/wiki`).
+
 ## License
 
 Copyright (c) 2026 Torsten Raudssus. Same terms as Perl 5 itself.

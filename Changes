@@ -1,4 +1,12 @@
 {{$NEXT}}
+  - Security: every tool is confined to the wiki root given at start
+    (wiki_root / --wiki-root). Tools take no root_dir argument; page names are
+    resolved (symlinks, "..") and must lie below the root.
+  - Security: a page is a .md file. Tools refuse any other file and everything
+    below a .git directory, so a wiki's repository is out of reach.
+  - list_pages returns exactly the pages the other tools accept and does not
+    enter .git
+  - create_page and rename_page create missing subdirectories
 
 0.001  2026-04-28
   - Initial release

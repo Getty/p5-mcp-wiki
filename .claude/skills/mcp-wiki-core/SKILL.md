@@ -16,8 +16,8 @@ Distribution, ein Einstiegspunkt (`bin/mcp-wiki`).
 
 | Term | Meaning |
 |------|---------|
-| **page** | Eine `.md`-Datei, adressiert **relativ** zur wiki_root (`sub/dir/seite.md`) |
-| **wiki_root** | Basisverzeichnis; pro Tool-Aufruf per `root_dir` überschreibbar |
+| **page** | Eine `.md`-Datei unter der wiki_root und außerhalb von `.git`, adressiert **relativ** zur wiki_root (`sub/dir/seite.md`) |
+| **wiki_root** | Basisverzeichnis; beim Serverstart festgelegt, kein Tool-Aufruf kann es ändern |
 | **section** | Bereich von einer Überschrift bis zur nächsten Überschrift (beliebigen Levels) |
 | **heading_path** | `#`-getrennte Kette, die eine section identifiziert — die einzige stabile Adresse |
 | **TOC entry** | `MCP::Wiki::TOC::Entry`, ein Heading plus Zeilenbereich und Preview |
@@ -42,6 +42,20 @@ Tools: `list_pages` `get_toc` `get_paragraph` `create_page` `update_paragraph`
 
 ## Core invariants
 
+- **Jeder Dateizugriff eines Tools läuft über `_resolve_page`.** Der Client ist ein
+  Sprachmodell, das ungeprüften Wiki-Inhalt liest; der Seitenname ist das Einzige, was
+  einen Aufruf im Wiki hält. Der Helfer läuft den Namen komponentenweise ab der
+  aufgelösten Wurzel ab, löst Existierendes sofort per `realpath` auf (Symlinks, `..`)
+  und hängt den noch nicht existierenden Rest als reine Namen an. Abgelehnt wird, was
+  die Wurzel verlässt (geprüft in jedem Schritt mit `subsumes`, also an der Pfadgrenze:
+  `/wiki-evil` liegt nicht unter `/wiki`), was eine Komponente `.git` trägt (beliebige
+  Schreibweise, im Namen wie im aufgelösten Pfad) und was keine `.md`-Datei ist. Ein
+  Tool, das selbst einen Pfad baut, öffnet die Lücke wieder. `list_pages` listet genau
+  das, was `_resolve_page` annimmt, und betritt `.git` nicht.
+- **Es gibt kein `root_dir`.** Tools werden über `_add_tool` registriert; der Wrapper
+  lehnt jeden Aufruf mit `root_dir` ab, statt ihn gegen die konfigurierte Wurzel
+  auszuführen, wo derselbe Seitenname eine andere Datei meinen kann. Neue Tools ebenfalls
+  über `_add_tool`, nie direkt über `$server->tool`.
 - **`heading_path` ist die Section-Identität, Zeilennummern sind es nicht.** Jeder
   Tool-Aufruf baut ein frisches `Document` und parst neu; `line_start`/`line_end` sind
   Ergebnis *dieses* Parse-Laufs und nach jeder Änderung wertlos. Nie einen Zeilenbereich
@@ -77,7 +91,7 @@ Tools: `list_pages` `get_toc` `get_paragraph` `create_page` `update_paragraph`
 
 ## Sharp edges — verifiziert, nicht vermutet
 
-Diese vier sind Defekte, keine Konventionen. Nicht "aus Versehen mitfixen", nicht
+Diese drei sind Defekte, keine Konventionen. Nicht "aus Versehen mitfixen", nicht
 umbauen ohne Ticket — aber auch nie als korrektes Verhalten dokumentieren.
 
 - **`_build_heading_path` baut keine Vorfahrenkette.** Es sammelt *alle* vorangehenden
@@ -97,12 +111,6 @@ umbauen ohne Ticket — aber auch nie als korrektes Verhalten dokumentieren.
   genau das an `$doc->set_paragraph($heading_path, ...)` weiter und schreibt damit das
   ganze Dokument in einen Abschnitt. Entweder gibt History nur den Section-Text zurück,
   oder Server schreibt die Datei direkt — nicht beides.
-- **Der Wurzel-Check ist ein String-Präfix-Vergleich.** `index($page_path, $wiki_root) == 0`
-  bzw. `substr(...) eq $root_str` akzeptiert `/wiki-evil/x.md` für die Wurzel `/wiki`.
-  Es fehlt die Grenze (`$root` oder `$root/`). Zusätzlich stirbt `create_page` an
-  `realpath`, sobald das Zielverzeichnis noch nicht existiert (`unter/tief.md`) — obwohl
-  das Schema Unterverzeichnisse zusagt und `mkpath` zwei Zeilen später darauf wartet;
-  kanonisiert werden muss das *Elternverzeichnis*, nicht die künftige Datei.
 
 ## Altbestand
 

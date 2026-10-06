@@ -88,19 +88,23 @@ public item. Incoming tickets are NOT a queue the agent drains.
 
 ## MCP-Wiki-specific hazards
 
-- **This server writes to a real user's files.** `wiki_root` defaults to `.` and every
-  tool takes a `root_dir` override, so a careless test or manual run edits whatever
-  directory it was started in. Never exercise write tools against the checkout or `$HOME`
-  — always a `Path::Tiny` tempdir.
+- **This server writes to a real user's files.** `wiki_root` defaults to `.`, so a
+  careless test or manual run edits whatever directory it was started in. Never exercise
+  write tools against the checkout or `$HOME` — always a `Path::Tiny` tempdir.
+- **`_resolve_page` is the only thing confining a tool call.** The client is a language
+  model reading untrusted wiki content; the helper keeps it to `.md` files below
+  `wiki_root` and out of `.git`. A tool that builds a path on its own reopens the hole.
+  Route every file access through it and extend `t/36-server-path-security.t` with the
+  new tool (see skill `mcp-wiki-core`).
 - **`heading_path` is a stored address, not an implementation detail.** It is the wire
   format of `get_toc`, the argument of four tools, and the key git history matches on.
   Its construction is currently wrong (siblings are collected as ancestors — see skill
   `mcp-wiki-core`), and fixing it invalidates every address users already hold. That is
   an ADR-grade decision; do not slip it into an unrelated change.
-- **Four known defects are ticketed, not hidden.** heading_path ancestry, the
-  get/set_paragraph off-by-one, restore_section applying its patch twice, and the
-  prefix-only wiki-root check. Do not "discover" them again as new findings, and do not
-  fix them opportunistically — take the ticket or leave them.
+- **Three known defects are ticketed, not hidden.** heading_path ancestry, the
+  get/set_paragraph off-by-one and restore_section applying its patch twice. Do not
+  "discover" them again as new findings, and do not fix them opportunistically — take
+  the ticket or leave them.
 - **`PLAN.md` is a draft, not a spec.** It describes content hashing, conflict markers,
   `Git::Blame` and async callbacks that do not exist. When it contradicts `lib/`, `lib/`
   wins.

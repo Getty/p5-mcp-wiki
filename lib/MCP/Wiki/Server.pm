@@ -7,6 +7,7 @@ use Moo;
 use MCP::Server;
 use MCP::Wiki::Document;
 use Path::Tiny;
+use Carp qw( croak );
 use JSON::MaybeXS qw( to_json );
 use Digest::SHA qw( sha256_hex );
 use feature 'signatures';
@@ -14,6 +15,9 @@ use feature 'signatures';
 =attr wiki_root
 
 Root directory for wiki pages. Defaults to current directory.
+
+Set once when the server is constructed; no tool call can change it or reach a
+file outside of it. See L</PAGE NAMES>.
 
 =cut
 has wiki_root => (
@@ -68,65 +72,155 @@ sub BUILD {
     $self->_setup_tools;
 }
 
+sub _wiki_root_path {
+    my ($self) = @_;
+
+    my $root = eval { Path::Tiny::path($self->wiki_root)->realpath };
+    croak 'Invalid wiki_root: ' . $self->wiki_root unless $root && $root->is_dir;
+
+    return $root;
+}
+
+# True for a path component that names a git directory. Compared without
+# regard to case, because a case-insensitive filesystem opens ".GIT" as ".git".
+sub _is_git_dir_name {
+    my ($self, $name) = @_;
+    return lc $name eq '.git';
+}
+
+# Turns a page name from a client into the physical path it stands for, or
+# croaks. The client is a language model that reads untrusted wiki content, so
+# the name is the only thing keeping a tool call inside the wiki: every tool
+# that touches a file has to come through here.
+#
+# The name is walked one component at a time from the resolved root. Whatever
+# already exists on disk is resolved before the next component is applied, so a
+# symlink is followed and a ".." after it means the parent of its target; the
+# part that does not exist yet (a page about to be created, with its
+# directories) is appended as plain names. Containment is tested at every step
+# on whole path components, so "/wiki-evil" is not below "/wiki" and nothing
+# outside the root is probed beyond the step that leaves it.
+#
+# Two things inside the root are no pages either. Nothing below a ".git"
+# directory: a write to its config or hooks is code execution at the next git
+# command. And nothing but ".md" files, which keeps every other file in the
+# directory out of reach. ".git" is looked for in the name and in the resolved
+# path, the extension in the resolved path: that is the file a call acts on.
+sub _resolve_page {
+    my ($self, $page) = @_;
+
+    croak 'Page name required' unless defined $page && !ref $page && length $page;
+    croak 'Invalid page name' if $page =~ /\0/;
+
+    my $root = $self->_wiki_root_path;
+    my $path = $root;
+    for my $part (split m{/+}, $page) {
+        next if $part eq '' || $part eq '.';
+        $path = $part eq '..' ? $path->parent : $path->child($part);
+        if (-l $path || -e $path) {
+            $path = eval { $path->realpath }
+                or croak "Cannot resolve page path: $page";
+            # Fail closed should a link survive resolution: a later write
+            # would follow it past the check below.
+            croak "Cannot resolve page path: $page" if -l $path;
+        }
+        croak "Path outside wiki root: $page" unless $root->subsumes($path);
+        croak "Not a wiki page (inside .git): $page"
+            if grep { $self->_is_git_dir_name($_) }
+                $part, split m{/}, $path->relative($root);
+    }
+
+    # The root itself is a directory, never a page.
+    croak "Path outside wiki root: $page" if $path eq $root;
+
+    croak "Not a markdown page: $page" unless $path->basename =~ /\.md\z/i;
+
+    return $path;
+}
+
+# All pages below the root, as sorted names relative to it. A page is listed
+# only if _resolve_page accepts its name, so the list never offers something
+# the other tools refuse: no symlink leading out of the root, into ".git" or to
+# a file that is no page. ".git" is not entered, and neither are directory
+# symlinks.
+sub _list_pages {
+    my ($self) = @_;
+
+    my $root = $self->_wiki_root_path;
+    my @pages;
+    my @dirs = ($root);
+    while (my $dir = shift @dirs) {
+        for my $child ($dir->children) {
+            next if $self->_is_git_dir_name($child->basename);
+            if (-d $child) {
+                push @dirs, $child unless -l $child;
+                next;
+            }
+            next unless $child->basename =~ /\.md\z/i;
+            my $rel = $child->relative($root)->stringify;
+            push @pages, $rel if eval { $self->_resolve_page($rel)->is_file };
+        }
+    }
+
+    return [sort @pages];
+}
+
 sub _create_document {
-    my ($self, $page, $root_dir) = @_;
+    my ($self, $page) = @_;
 
-    my $root = $root_dir // $self->wiki_root;
-    my $wiki_root = Path::Tiny::path($root)->realpath
-        or die "Invalid wiki_root: $root";
-
-    # Security: ensure page path stays within wiki_root
-    my $page_path = $wiki_root->child($page)->realpath;
-    my $page_str = "$page_path";
-    my $root_str = "$wiki_root";
-    die "Path outside wiki root: $page" unless substr($page_str, 0, length($root_str)) eq $root_str;
+    my $page_path = $self->_resolve_page($page);
+    croak "Page not found: $page" unless $page_path->is_file;
 
     return MCP::Wiki::Document->new(
         file_path  => "$page_path",
-        wiki_root  => "$wiki_root",
+        wiki_root  => $self->_wiki_root_path->stringify,
+    );
+}
+
+# Registers a tool. The wiki root is fixed when the server starts; a call that
+# still carries a root_dir is refused instead of being carried out against the
+# configured root, where the same page name may stand for a different file.
+sub _add_tool {
+    my ($self, %spec) = @_;
+
+    my $code = delete $spec{code};
+
+    return $self->server->tool(
+        %spec,
+        code => sub ($tool, $args) {
+            return $tool->text_result(
+                'root_dir is not supported: the wiki root is fixed when the server starts', 1
+            ) if ref $args eq 'HASH' && exists $args->{root_dir};
+
+            return $code->($tool, $args);
+        },
     );
 }
 
 sub _setup_tools {
     my ($self) = @_;
 
-    my $server = $self->server;
-
     # Tool: list_pages
-    $server->tool(
+    $self->_add_tool(
         name        => 'list_pages',
-        description => 'List all wiki pages (markdown files) in the wiki root',
+        description => 'List all wiki pages (.md files) below the wiki root',
         input_schema => {
             type => 'object',
-            properties => {
-                root_dir => {
-                    type => 'string',
-                    description => 'Optional: override wiki root directory',
-                },
-            },
+            properties => {},
         },
         code => sub ($tool, $args) {
-            my $wiki_root = Path::Tiny::path($args->{root_dir} // $self->wiki_root)->realpath
-                or return $tool->text_result("Invalid wiki_root: $args->{root_dir}", 1);
-
-            my @pages;
-            my $iter = $wiki_root->iterator({ recurse => 1 });
-            while (my $path = $iter->()) {
-                if ($path->is_file && $path =~ /\.md$/i) {
-                    my $rel = $path->relative($wiki_root);
-                    push @pages, "$rel";
-                }
-            }
+            my $pages = eval { $self->_list_pages }
+                or return $tool->text_result("Cannot list pages: $@", 1);
 
             return $tool->structured_result({
-                pages => [sort @pages],
-                count => scalar(@pages),
+                pages => $pages,
+                count => scalar(@$pages),
             });
         },
     );
 
     # Tool: get_toc
-    $server->tool(
+    $self->_add_tool(
         name        => 'get_toc',
         description => 'Get table of contents for a wiki page',
         input_schema => {
@@ -134,17 +228,13 @@ sub _setup_tools {
             properties => {
                 page => {
                     type => 'string',
-                    description => 'Page name (relative path from wiki root)',
-                },
-                root_dir => {
-                    type => 'string',
-                    description => 'Optional: override wiki root directory',
+                    description => 'Page name (path of a .md file relative to the wiki root)',
                 },
             },
             required => ['page'],
         },
         code => sub ($tool, $args) {
-            my $doc = eval { $self->_create_document($args->{page}, $args->{root_dir}) };
+            my $doc = eval { $self->_create_document($args->{page}) };
             if ($@) {
                 return $tool->text_result("Invalid page: $@", 1);
             }
@@ -158,7 +248,7 @@ sub _setup_tools {
     );
 
     # Tool: get_paragraph
-    $server->tool(
+    $self->_add_tool(
         name        => 'get_paragraph',
         description => 'Get content under a specific heading path',
         input_schema => {
@@ -166,21 +256,17 @@ sub _setup_tools {
             properties => {
                 page => {
                     type => 'string',
-                    description => 'Page name',
+                    description => 'Page name (path of a .md file relative to the wiki root)',
                 },
                 heading_path => {
                     type => 'string',
                     description => 'Heading path (e.g. "Introduction#Background")',
                 },
-                root_dir => {
-                    type => 'string',
-                    description => 'Optional: override wiki root directory',
-                },
             },
             required => ['page', 'heading_path'],
         },
         code => sub ($tool, $args) {
-            my $doc = eval { $self->_create_document($args->{page}, $args->{root_dir}) };
+            my $doc = eval { $self->_create_document($args->{page}) };
             if ($@) {
                 return $tool->text_result("Invalid page: $@", 1);
             }
@@ -195,7 +281,7 @@ sub _setup_tools {
     );
 
     # Tool: create_page
-    $server->tool(
+    $self->_add_tool(
         name        => 'create_page',
         description => 'Create a new wiki page',
         input_schema => {
@@ -203,34 +289,28 @@ sub _setup_tools {
             properties => {
                 page => {
                     type => 'string',
-                    description => 'Page name (can include subdirectories)',
+                    description => 'Page name (path of a .md file relative to the wiki root, can include subdirectories)',
                 },
                 content => {
                     type => 'string',
                     description => 'Initial page content',
                 },
-                root_dir => {
-                    type => 'string',
-                    description => 'Optional: override wiki root directory',
-                },
             },
             required => ['page'],
         },
         code => sub ($tool, $args) {
-            my $wiki_root = Path::Tiny::path($args->{root_dir} // $self->wiki_root)->realpath
-                or return $tool->text_result("Invalid wiki_root", 1);
-
-            my $page_path = $wiki_root->child($args->{page})->realpath;
-            unless (index("$page_path", "$wiki_root") == 0) {
-                return $tool->text_result("Invalid page path", 1);
-            }
+            my $page_path = eval { $self->_resolve_page($args->{page}) }
+                or return $tool->text_result("Invalid page path: $@", 1);
 
             if (-e $page_path) {
                 return $tool->text_result("Page already exists: $args->{page}", 1);
             }
 
-            $page_path->parent->mkpath;
-            $page_path->spew_utf8($args->{content} // "# $args->{page}\n");
+            eval {
+                $page_path->parent->mkpath;
+                $page_path->spew_utf8($args->{content} // "# $args->{page}\n");
+                1;
+            } or return $tool->text_result("Create failed: $@", 1);
 
             $self->_fire_on_change({
                 type   => 'create',
@@ -246,7 +326,7 @@ sub _setup_tools {
     );
 
     # Tool: update_paragraph
-    $server->tool(
+    $self->_add_tool(
         name        => 'update_paragraph',
         description => 'Update content under a heading',
         input_schema => {
@@ -254,7 +334,7 @@ sub _setup_tools {
             properties => {
                 page => {
                     type => 'string',
-                    description => 'Page name',
+                    description => 'Page name (path of a .md file relative to the wiki root)',
                 },
                 heading_path => {
                     type => 'string',
@@ -268,15 +348,11 @@ sub _setup_tools {
                     type => 'string',
                     description => 'Reason for the change (used as git commit message if git is enabled)',
                 },
-                root_dir => {
-                    type => 'string',
-                    description => 'Optional: override wiki root directory',
-                },
             },
             required => ['page', 'heading_path', 'content'],
         },
         code => sub ($tool, $args) {
-            my $doc = eval { $self->_create_document($args->{page}, $args->{root_dir}) };
+            my $doc = eval { $self->_create_document($args->{page}) };
             if ($@) {
                 return $tool->text_result("Invalid page: $@", 1);
             }
@@ -302,36 +378,28 @@ sub _setup_tools {
     );
 
     # Tool: rename_page
-    $server->tool(
+    $self->_add_tool(
         name        => 'rename_page',
-        description => 'Rename or move a wiki page',
+        description => 'Rename or move a wiki page within the wiki root',
         input_schema => {
             type => 'object',
             properties => {
                 from => {
                     type => 'string',
-                    description => 'Current page name',
+                    description => 'Current page name (path of a .md file relative to the wiki root)',
                 },
                 to => {
                     type => 'string',
-                    description => 'New page name',
-                },
-                root_dir => {
-                    type => 'string',
-                    description => 'Optional: override wiki root directory',
+                    description => 'New page name (path of a .md file relative to the wiki root, can include subdirectories)',
                 },
             },
             required => ['from', 'to'],
         },
         code => sub ($tool, $args) {
-            my $wiki_root = Path::Tiny::path($args->{root_dir} // $self->wiki_root)->realpath;
-
-            my $from_path = $wiki_root->child($args->{from})->realpath;
-            my $to_path = $wiki_root->child($args->{to})->realpath;
-
-            unless (index("$from_path", "$wiki_root") == 0 && index("$to_path", "$wiki_root") == 0) {
-                return $tool->text_result("Invalid path", 1);
-            }
+            my $from_path = eval { $self->_resolve_page($args->{from}) }
+                or return $tool->text_result("Invalid path: $@", 1);
+            my $to_path = eval { $self->_resolve_page($args->{to}) }
+                or return $tool->text_result("Invalid path: $@", 1);
 
             unless (-e $from_path) {
                 return $tool->text_result("Page not found: $args->{from}", 1);
@@ -341,8 +409,11 @@ sub _setup_tools {
                 return $tool->text_result("Target already exists: $args->{to}", 1);
             }
 
-            $to_path->parent->mkpath;
-            $from_path->move($to_path);
+            eval {
+                $to_path->parent->mkpath;
+                $from_path->move($to_path);
+                1;
+            } or return $tool->text_result("Rename failed: $@", 1);
 
             $self->_fire_on_change({
                 type   => 'rename',
@@ -359,7 +430,7 @@ sub _setup_tools {
     );
 
     # Tool: delete_page
-    $server->tool(
+    $self->_add_tool(
         name        => 'delete_page',
         description => 'Delete a wiki page',
         input_schema => {
@@ -367,22 +438,14 @@ sub _setup_tools {
             properties => {
                 page => {
                     type => 'string',
-                    description => 'Page name to delete',
-                },
-                root_dir => {
-                    type => 'string',
-                    description => 'Optional: override wiki root directory',
+                    description => 'Page name to delete (path of a .md file relative to the wiki root)',
                 },
             },
             required => ['page'],
         },
         code => sub ($tool, $args) {
-            my $wiki_root = Path::Tiny::path($args->{root_dir} // $self->wiki_root)->realpath;
-
-            my $page_path = $wiki_root->child($args->{page})->realpath;
-            unless (index("$page_path", "$wiki_root") == 0) {
-                return $tool->text_result("Invalid path", 1);
-            }
+            my $page_path = eval { $self->_resolve_page($args->{page}) }
+                or return $tool->text_result("Invalid path: $@", 1);
 
             unless (-e $page_path) {
                 return $tool->text_result("Page not found: $args->{page}", 1);
@@ -403,7 +466,7 @@ sub _setup_tools {
     );
 
     # Tool: get_section_history
-    $server->tool(
+    $self->_add_tool(
         name        => 'get_section_history',
         description => 'Get commit history for a section identified by heading path',
         input_schema => {
@@ -411,15 +474,11 @@ sub _setup_tools {
             properties => {
                 page => {
                     type => 'string',
-                    description => 'Page name',
+                    description => 'Page name (path of a .md file relative to the wiki root)',
                 },
                 heading_path => {
                     type => 'string',
                     description => 'Heading path (e.g. "Introduction#Background")',
-                },
-                root_dir => {
-                    type => 'string',
-                    description => 'Optional: override wiki root directory',
                 },
             },
             required => ['page', 'heading_path'],
@@ -429,6 +488,9 @@ sub _setup_tools {
             unless ($git) {
                 return $tool->text_result("Git history not available (git may not be enabled)", 1);
             }
+
+            eval { $self->_resolve_page($args->{page}); 1 }
+                or return $tool->text_result("Invalid page: $@", 1);
 
             my @commits = $git->get_section_commits($args->{page}, $args->{heading_path});
             return $tool->structured_result({
@@ -441,7 +503,7 @@ sub _setup_tools {
     );
 
     # Tool: restore_section
-    $server->tool(
+    $self->_add_tool(
         name        => 'restore_section',
         description => 'Restore a section from a historical commit',
         input_schema => {
@@ -449,7 +511,7 @@ sub _setup_tools {
             properties => {
                 page => {
                     type => 'string',
-                    description => 'Page name',
+                    description => 'Page name (path of a .md file relative to the wiki root)',
                 },
                 heading_path => {
                     type => 'string',
@@ -463,10 +525,6 @@ sub _setup_tools {
                     type => 'string',
                     description => 'Reason for the restore (used as git commit message)',
                 },
-                root_dir => {
-                    type => 'string',
-                    description => 'Optional: override wiki root directory',
-                },
             },
             required => ['page', 'heading_path', 'commit_hash'],
         },
@@ -476,7 +534,7 @@ sub _setup_tools {
                 return $tool->text_result("Git history not available (git may not be enabled)", 1);
             }
 
-            my $doc = eval { $self->_create_document($args->{page}, $args->{root_dir}) };
+            my $doc = eval { $self->_create_document($args->{page}) };
             if ($@) {
                 return $tool->text_result("Invalid page: $@", 1);
             }
@@ -598,5 +656,45 @@ __END__
     });
 
     $server->to_stdio;
+
+=head1 PAGE NAMES
+
+A page is a C<.md> file below C<wiki_root>, and every tool addresses it by its
+path relative to that root, for example C<notes.md> or
+C<projects/alpha/plan.md>. The extension is part of the name and is matched
+without regard to case. C<create_page> and C<rename_page> create missing
+directories on the way.
+
+A page name is resolved against the root before anything is read or written:
+symlinks are followed, C<..> is applied, and the result has to lie below the
+root. A name that leads outside is refused, whether it gets there through
+C<..>, through a symlink (including one whose target does not exist yet) or
+through a directory that merely shares the root's name as a prefix, such as
+C</srv/wiki-old> next to C</srv/wiki>. A symlink that stays inside the root
+works like the page it points to.
+
+Two things inside the root are not pages and are refused by every tool:
+
+=over 4
+
+=item *
+
+Any file that is not a C<.md> file, including one reached through a symlink
+with a C<.md> name.
+
+=item *
+
+Anything below a directory named C<.git>, in any spelling of upper and lower
+case, at any depth, and also when reached through a symlink. The repository of
+a wiki with git history is therefore out of reach of the tools.
+
+=back
+
+C<list_pages> returns exactly the names the other tools accept. It does not
+enter C<.git> or directories that are symlinks.
+
+The tools take no C<root_dir> argument. A call that passes one is answered with
+an error and changes nothing. To serve a different directory, start a server
+with a different C<wiki_root>.
 
 =cut
