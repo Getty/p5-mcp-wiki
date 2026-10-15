@@ -1,0 +1,28 @@
+---
+claimed_at: 2026-10-15T04:56:38Z
+claimed_by: p5-mcp-wiki
+class: standard
+completed: 2026-10-15T20:49:09Z
+created: 2026-08-23T14:25:42Z
+id: 5
+priority: high
+started: 2026-10-15T04:49:51Z
+status: done
+tags:
+- release
+- deps
+title: cpanfile stimmt nicht mit dem Code ueberein
+updated: 2026-10-15T20:49:09Z
+---
+
+Undeklariert, aber benutzt:
+  Git::Raw       (lib/MCP/Wiki/Git/History.pm, Git.pm) -- laedt per eval require, degradiert sauber -> gehoert unter recommends/suggests, nicht requires
+  Types::Standard (lib/MCP/Wiki/TOC/Entry.pm)
+
+Deklariert, aber nirgends benutzt:
+  Markdown::Perl
+  Syntax::Keyword::Try
+
+Blockt einen Release: eine Installation ohne Git::Raw ist gewollt, eine ohne Types::Standard funktioniert nur zufaellig ueber die Moo-Abhaengigkeitskette.
+
+2026-10-15 04:56 Commit 4061710 (Branch karr-abbau, lokal, kein Push). cpanfile: Markdown::Perl/Syntax::Keyword::Try raus, Types::Standard+Moo requires, Git::Raw nur recommends. t/05-cpanfile.t neu: gegen altes cpanfile 6/16 rot, jetzt 16/16; prove -lr t gruen. Offen: Moo war ebenfalls undeklariert (nicht auf der Karte, mitgenommen). Digest::SHA/Types::Standard wurden danach durch k9 (c2e81e6) wieder entfernt, da ungenutzt.
