@@ -1,0 +1,24 @@
+---
+claimed_at: 2026-10-15T04:56:39Z
+claimed_by: p5-mcp-wiki
+class: standard
+completed: 2026-10-15T20:49:09Z
+created: 2026-08-23T14:25:47Z
+id: 6
+priority: medium
+started: 2026-10-15T04:49:52Z
+status: done
+tags:
+- test
+title: Tests adressieren Tools ueber den Index
+updated: 2026-10-15T20:49:09Z
+---
+
+t/35-server-tools.t greift auf $server->server->tools->[0] / ->[3] zu. Jede Einfuegung in _setup_tools verschiebt die Indizes -- die Tests bleiben gruen und testen ein anderes Tool.
+
+Ersetzen durch:
+  my ($t) = grep { $_->name eq "create_page" } @{$server->server->tools};
+
+Zweiter Punkt am selben Ort: die Assertions regexen ueber den JSON-Text aus structured_result. Dekodieren und auf der Datenstruktur assertieren.
+
+2026-10-15 04:56 Commit 21783fb. t/35 adressiert Tools per Name (Helper tool_named, dekodierte Daten statt Regex). Beleg: Dummy-Tool vorn in _setup_tools -> alte Fassung 8/9 Subtests rot, neue 9/9 gruen; lib/ danach restlos zurueck. Kein lib-Rot-Test moeglich (reine Test-Refaktorierung). Index-Zugriffe gab es nur in t/35. Rest: path-traversal-Fall bleibt regexbasiert (Textfehler, kein JSON).
