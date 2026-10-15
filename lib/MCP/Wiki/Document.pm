@@ -5,7 +5,6 @@ use strict;
 use warnings;
 use Moo;
 use Path::Tiny;
-use Digest::SHA qw( sha256_hex );
 use MCP::Wiki::TOC::Parser;
 
 =attr file_path
@@ -77,11 +76,6 @@ sub set_paragraph {
     Path::Tiny::path($self->file_path)->spew_utf8(join("\n", @new_lines));
 
     return 1;
-}
-
-sub update_content_hash {
-    my ($self) = @_;
-    return sha256_hex($self->content);
 }
 
 1;

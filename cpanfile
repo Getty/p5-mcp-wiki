@@ -3,8 +3,6 @@ requires 'Mojolicious';          # Required by MCP::Server
 requires 'Moo';
 requires 'Path::Tiny';
 requires 'JSON::MaybeXS';
-requires 'Digest::SHA';
-requires 'Types::Standard';
 
 # Optional: history/restore tools degrade cleanly without it
 recommends 'Git::Raw';

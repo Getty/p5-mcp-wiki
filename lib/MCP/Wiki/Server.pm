@@ -8,8 +8,6 @@ use MCP::Server;
 use MCP::Wiki::Document;
 use Path::Tiny;
 use Carp qw( croak );
-use JSON::MaybeXS qw( to_json );
-use Digest::SHA qw( sha256_hex );
 use feature 'signatures';
 
 =attr wiki_root

@@ -60,21 +60,4 @@ MARKDOWN
     like($para->{content}, qr/Section one/, 'content has section one');
 };
 
-subtest 'update_content_hash is consistent' => sub {
-    my $dir = tempdir;
-
-    my $test_file = File::Spec->catfile($dir, 'test.md');
-    Path::Tiny::path($test_file)->spew_utf8("# Test\n\nContent.");
-
-    my $doc = MCP::Wiki::Document->new(
-        file_path   => $test_file,
-        wiki_root => "$dir",
-    );
-
-    my $hash1 = $doc->update_content_hash;
-    my $hash2 = $doc->update_content_hash;
-
-    is($hash1, $hash2, 'same content produces same hash');
-};
-
 done_testing;

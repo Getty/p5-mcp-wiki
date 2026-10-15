@@ -1,4 +1,8 @@
 {{$NEXT}}
+  - Removed unused internals: Document update_content_hash, Git::History
+    history_file / _build_history_file (.mcp-wiki-history.json was never read
+    or written), and the unused Digest::SHA, to_json and Types::Standard
+    imports; Digest::SHA and Types::Standard leave the cpanfile
   - Docs: README tool table lists the real arguments of every tool
     (heading_path, not heading) and the known heading_path/paragraph/restore
     defects; mcp-wiki POD states what --git and --commit-reason-required do;

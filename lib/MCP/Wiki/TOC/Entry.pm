@@ -2,7 +2,6 @@ package MCP::Wiki::TOC::Entry;
 # ABSTRACT: Single TOC entry with heading path and line range
 
 use Moo;
-use Types::Standard qw( Int Str Maybe );
 
 =attr level
 

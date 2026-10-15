@@ -5,7 +5,6 @@ use strict;
 use warnings;
 use Moo;
 use Path::Tiny;
-use Digest::SHA qw( sha256_hex );
 use JSON::MaybeXS qw( decode_json encode_json );
 
 =attr wiki_root
@@ -27,15 +26,6 @@ has repo => (
     is => 'lazy',
 );
 
-=attr history_file
-
-Path to the history tracking file
-
-=cut
-has history_file => (
-    is => 'lazy',
-);
-
 sub _build_repo {
     my ($self) = @_;
     my $git_dir = $self->wiki_root . '/.git';
@@ -44,11 +34,6 @@ sub _build_repo {
     die "Git::Raw is required for git history" unless eval { require Git::Raw; 1 };
 
     return Git::Raw::Repository->open($self->wiki_root);
-}
-
-sub _build_history_file {
-    my ($self) = @_;
-    return Path::Tiny::path($self->wiki_root)->child('.mcp-wiki-history.json');
 }
 
 =method get_section_commits
