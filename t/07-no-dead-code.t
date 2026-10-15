@@ -40,4 +40,11 @@ unlike( code_of('lib/MCP/Wiki/Server.pm'), qr/\bto_json\b/, 'Server imports no t
 unlike( code_of('lib/MCP/Wiki/TOC/Entry.pm'), qr/\bTypes::Standard\b/, 'Entry loads no Types::Standard' );
 unlike( code_of('lib/MCP/Wiki/Git/History.pm'), qr/mcp-wiki-history\.json/, 'no history json file' );
 
+# Part B: MCP::Wiki::Git is gone
+ok( !-e 'lib/MCP/Wiki/Git.pm', 'lib/MCP/Wiki/Git.pm does not exist' );
+{
+  local $@;
+  ok( !eval { require MCP::Wiki::Git; 1 }, 'require MCP::Wiki::Git fails' );
+}
+
 done_testing;
