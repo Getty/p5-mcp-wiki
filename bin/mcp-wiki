@@ -54,11 +54,13 @@ reach files below this directory; a client cannot name a different one.
 
 =item B<--git>
 
-Enable git auto-commit on changes
+Enable git auto-commit on changes. Needs the optional Git::Raw module; without
+it nothing is committed and the history tools report that history is not
+available.
 
 =item B<--commit-reason-required>
 
-Require a reason for commits
+Accepted, but currently has no effect: a missing reason is not rejected.
 
 =item B<--help>
 

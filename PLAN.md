@@ -1,3 +1,11 @@
+> **Original design draft -- not a description of the current code.**
+> This file is kept for its intent. It is not the specification of what
+> exists: content hashing, conflict markers, `MCP::Wiki::Git::Blame` and
+> async callbacks were never built, the test files named in "File Structure"
+> do not exist (the real ones are under `t/`), and the tool arguments differ: `lib/` uses `heading_path` where this file
+> says `heading`, and has no `root_dir` at all.
+> Where this file and `lib/` disagree, `lib/` wins.
+
 # Plan: MCP::Wiki - Markdown Wiki MCP Server
 
 ## Overview

@@ -1,4 +1,9 @@
 {{$NEXT}}
+  - Docs: README tool table lists the real arguments of every tool
+    (heading_path, not heading) and the known heading_path/paragraph/restore
+    defects; mcp-wiki POD states what --git and --commit-reason-required do;
+    PLAN.md is marked as the original draft; t/06-readme-tools.t keeps README
+    and bin/mcp-wiki POD in sync with the tool schemas and Getopt options
   - Security: every tool is confined to the wiki root given at start
     (wiki_root / --wiki-root). Tools take no root_dir argument; page names are
     resolved (symlinks, "..") and must lie below the root.

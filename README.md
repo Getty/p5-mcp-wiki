@@ -27,7 +27,7 @@ my $server = MCP::Wiki::Server->new(
 );
 
 $server->on_change(sub ($event) {
-    # Handle create/update/delete events
+    # $event->{type} is create, update, rename, delete or restore
     # Useful for auto-commits, webhooks, etc.
 });
 
@@ -36,23 +36,50 @@ $server->to_stdio;
 
 ## MCP Tools
 
-| Tool | Description |
-|------|-------------|
-| `list_pages` | List all wiki pages |
-| `get_toc` | Get table of contents for a page |
-| `get_paragraph` | Get content under a specific heading |
-| `create_page` | Create a new wiki page |
-| `update_paragraph` | Update paragraph content |
-| `rename_page` | Rename/move a page |
-| `delete_page` | Delete a page |
-| `get_section_history` | Get git history for a section |
-| `restore_section` | Restore section from git commit |
+Every tool takes `page` (or `from`/`to`) as a path relative to `wiki_root`. A
+section is addressed by `heading_path`, the `#`-joined heading chain such as
+`Introduction#Background` -- not by `heading`, and never by line number.
+
+| Tool | Required | Optional | Description |
+|------|----------|----------|-------------|
+| `list_pages` | | | List all wiki pages |
+| `get_toc` | `page` | | Get table of contents for a page |
+| `get_paragraph` | `page`, `heading_path` | | Get the section under a heading path, heading line included |
+| `create_page` | `page` | `content` | Create a new wiki page |
+| `update_paragraph` | `page`, `heading_path`, `content` | `reason` | Update a section's content |
+| `rename_page` | `from`, `to` | | Rename/move a page |
+| `delete_page` | `page` | | Delete a page |
+| `get_section_history` | `page`, `heading_path` | | Get git history for a section (needs `use_git` and Git::Raw) |
+| `restore_section` | `page`, `heading_path`, `commit_hash` | `reason` | Restore a section from a git commit (needs `use_git` and Git::Raw) |
+
+`reason` becomes the git commit message when `use_git` is on.
+
+### Known defects
+
+These behave as described today; they are tracked, not fixed:
+
+- `heading_path` is not a pure ancestor chain: it collects every preceding
+  heading of the same or a higher level, siblings included. With
+  `# Intro`, `## Alpha`, `## Beta`, the second section is `Intro#Alpha#Beta`,
+  not `Intro#Beta`. Take paths from `get_toc`, and expect them to shift when
+  a sibling section is inserted (k1).
+- `get_paragraph` returns the section including its heading line, while
+  `update_paragraph` replaces from the line after the heading but with the
+  length including it. Writing back what `get_paragraph` returned duplicates
+  the heading and swallows the first line of the following section (k2).
+- `restore_section` hands the full restored document to the section write,
+  so a restore does not yield the section as it was (k3).
 
 ## Configuration
 
 - `wiki_root`: Root directory for wiki pages (default: current dir)
-- `use_git`: Enable git auto-commit on changes (default: 0)
-- `commit_reason_required`: Require reason for commits (default: 0)
+- `use_git`: Enable git auto-commit on changes (default: 0). Needs the optional
+  Git::Raw; without it the history tools answer "not available" and nothing is
+  committed. `restore_section` does not auto-commit.
+- `commit_reason_required`: accepted (default: 0) but currently has no effect.
+
+On the command line these are `--wiki-root`, `--git` and
+`--commit-reason-required`.
 
 ## Page names and the wiki root
 
