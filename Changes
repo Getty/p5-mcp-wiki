@@ -7,6 +7,9 @@
   - list_pages returns exactly the pages the other tools accept and does not
     enter .git
   - create_page and rename_page create missing subdirectories
+  - cpanfile matches the code: Types::Standard is required, Git::Raw is
+    recommended (history degrades cleanly without it), unused Markdown::Perl
+    and Syntax::Keyword::Try are dropped; t/05-cpanfile.t keeps it in sync
 
 0.001  2026-04-28
   - Initial release
