@@ -1,4 +1,6 @@
 {{$NEXT}}
+  - MCP::Wiki::Git stays as a deprecated thin wrapper around
+    MCP::Wiki::Git::History
   - Removed unused internals: Document update_content_hash, Git::History
     history_file / _build_history_file (.mcp-wiki-history.json was never read
     or written), and the unused Digest::SHA, to_json and Types::Standard
