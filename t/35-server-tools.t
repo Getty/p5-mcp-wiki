@@ -3,8 +3,28 @@ use warnings;
 use Test::More;
 use Path::Tiny qw( tempdir );
 use File::Spec;
+use JSON::MaybeXS qw( decode_json );
 use MCP::Wiki::Server;
 use feature 'signatures';
+
+# Look a tool up by name; a missing tool is a loud failure, not a shifted index.
+sub tool_named {
+    my ($server, $name) = @_;
+    my ($tool) = grep { $_->name eq $name } @{ $server->server->tools };
+    die "tool '$name' is not registered" unless $tool;
+    return $tool;
+}
+
+sub call_tool {
+    my ($server, $name, $args) = @_;
+    my $tool = tool_named($server, $name);
+    return $tool->code->($tool, $args);
+}
+
+sub data_of {
+    my ($result) = @_;
+    return decode_json($result->{content}->[0]->{text});
+}
 
 # Create a test wiki directory
 my $wiki_dir = tempdir;
@@ -15,8 +35,7 @@ system("git init -q $wiki_dir") == 0 or die "git init failed";
 subtest 'list_pages with empty wiki' => sub {
     my $server = MCP::Wiki::Server->new(wiki_root => "$wiki_dir");
 
-    my $result = $server->server->tools->[0]->code->(
-        $server->server->tools->[0],
+    my $result = call_tool($server, 'list_pages',
         {}
     );
 
@@ -28,8 +47,7 @@ subtest 'list_pages with empty wiki' => sub {
 subtest 'create_page' => sub {
     my $server = MCP::Wiki::Server->new(wiki_root => "$wiki_dir");
 
-    my $result = $server->server->tools->[3]->code->(
-        $server->server->tools->[3],  # create_page tool
+    my $result = call_tool($server, 'create_page',
         { page => 'test.md', content => "# Test\n\nHello world." }
     );
 
@@ -41,8 +59,7 @@ subtest 'create_page' => sub {
 subtest 'get_toc after creating page' => sub {
     my $server = MCP::Wiki::Server->new(wiki_root => "$wiki_dir");
 
-    my $result = $server->server->tools->[1]->code->(
-        $server->server->tools->[1],  # get_toc tool
+    my $result = call_tool($server, 'get_toc',
         { page => 'test.md' }
     );
 
@@ -54,8 +71,7 @@ subtest 'get_toc after creating page' => sub {
 subtest 'get_paragraph' => sub {
     my $server = MCP::Wiki::Server->new(wiki_root => "$wiki_dir");
 
-    my $result = $server->server->tools->[2]->code->(
-        $server->server->tools->[2],  # get_paragraph tool
+    my $result = call_tool($server, 'get_paragraph',
         { page => 'test.md', heading_path => 'Test' }
     );
 
@@ -66,8 +82,7 @@ subtest 'get_paragraph' => sub {
 subtest 'update_paragraph' => sub {
     my $server = MCP::Wiki::Server->new(wiki_root => "$wiki_dir");
 
-    my $result = $server->server->tools->[4]->code->(
-        $server->server->tools->[4],  # update_paragraph tool
+    my $result = call_tool($server, 'update_paragraph',
         { page => 'test.md', heading_path => 'Test', content => "# Test\n\nUpdated content here." }
     );
 
@@ -84,8 +99,7 @@ subtest 'rename_page' => sub {
 
     # First create another page
     Path::Tiny::path("$wiki_dir/old.md")->spew_utf8("# Old\n\nContent");
-    my $result = $server->server->tools->[5]->code->(
-        $server->server->tools->[5],  # rename_page tool
+    my $result = call_tool($server, 'rename_page',
         { from => 'old.md', to => 'new.md' }
     );
 
@@ -100,8 +114,7 @@ subtest 'delete_page' => sub {
 
     # Create a file to delete
     Path::Tiny::path("$wiki_dir/delete-me.md")->spew_utf8("# Delete\n\nMe");
-    my $result = $server->server->tools->[6]->code->(
-        $server->server->tools->[6],  # delete_page tool
+    my $result = call_tool($server, 'delete_page',
         { page => 'delete-me.md' }
     );
 
@@ -121,8 +134,7 @@ subtest 'on_change callback fires' => sub {
     });
 
     # Trigger a create
-    $server->server->tools->[3]->code->(
-        $server->server->tools->[3],
+    call_tool($server, 'create_page',
         { page => 'callback-test.md', content => "# Callback Test" }
     );
 
@@ -134,8 +146,7 @@ subtest 'on_change callback fires' => sub {
 subtest 'path traversal blocked' => sub {
     my $server = MCP::Wiki::Server->new(wiki_root => "$wiki_dir");
 
-    my $result = $server->server->tools->[1]->code->(
-        $server->server->tools->[1],
+    my $result = call_tool($server, 'get_toc',
         { page => '../../../etc/passwd' }
     );
 
