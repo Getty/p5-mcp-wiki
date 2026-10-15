@@ -1,0 +1,21 @@
+---
+claimed_at: 2026-10-15T04:56:40Z
+claimed_by: p5-mcp-wiki
+class: standard
+completed: 2026-10-15T20:49:09Z
+created: 2026-08-23T14:26:36Z
+id: 8
+priority: low
+started: 2026-10-15T04:49:53Z
+status: done
+tags:
+- docs
+title: README beschreibt get_paragraph mit falschem Argument
+updated: 2026-10-15T20:49:09Z
+---
+
+README.md dokumentiert get_paragraph mit einem Argument "heading"; das Tool nimmt heading_path. Gleicher Abgleich faellig fuer die restlichen Tool-Argumente und die CLI-Optionen in der POD von bin/mcp-wiki.
+
+Ausserdem: PLAN.md als Entwurf kennzeichnen oder nach docs/ verschieben -- es beschreibt Content-Hashing, Conflict-Marker, MCP::Wiki::Git::Blame und Async-Callbacks, die nicht existieren, und nennt Testdateien, die es nicht gibt.
+
+2026-10-15 04:56 Commit cf6fea1. README-Tool-Tabelle mit Required/Optional aus den echten Schemas, Known-defects-Abschnitt (k1/k2/k3 als offen), on_change-Events komplett, bin/mcp-wiki-POD (--git braucht Git::Raw, --commit-reason-required ohne Wirkung), PLAN.md mit Entwurfs-Banner (nicht verschoben). t/06-readme-tools.t: gegen altes README 9/13 rot, jetzt gruen. Hinweis: das Argument 'heading' stand nur in PLAN.md, README sagte es nur in der Beschreibung. Randbefunde: create_page liest $args->{reason}, Schema deklariert es nicht; _commit_message_for_event hat keinen restore-Eintrag (durch ne 'restore'-Guard verdeckt); README-Beispiel braucht feature signatures.
