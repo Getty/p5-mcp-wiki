@@ -1,0 +1,27 @@
+---
+claimed_at: 2026-10-15T20:49:08Z
+claimed_by: p5-mcp-wiki
+class: standard
+completed: 2026-10-15T20:49:09Z
+created: 2026-08-23T14:26:40Z
+id: 9
+priority: low
+started: 2026-10-15T04:49:54Z
+status: done
+tags:
+- cleanup
+title: 'Toter Code: MCP::Wiki::Git und ungenutzte Attribute'
+updated: 2026-10-15T20:49:09Z
+---
+
+lib/MCP/Wiki/Git.pm hat keinen Aufrufer -- der Server benutzt ausschliesslich MCP::Wiki::Git::History. Die auto_commit-Variante dort uebergibt an create_commit einen Index-Entry als Parent-Liste und kann nicht funktionieren. Loeschen statt weiterpflegen.
+
+Weiterer ungenutzter Bestand:
+  Git/History.pm: _build_history_file / .mcp-wiki-history.json -- nie gelesen oder geschrieben
+  Document.pm: update_content_hash
+  Server.pm: commit_reason_required (Attribut + CLI-Flag, nirgends ausgewertet), Digest::SHA, to_json
+  TOC/Entry.pm: Types::Standard importiert, keine isa gesetzt
+
+2026-10-15 04:56 Zwei Commits. A c2e81e6: unbenutzte history_file/_build_history_file, update_content_hash, Digest::SHA (3 Dateien, nicht nur 2), to_json, Types::Standard-Import entfernt; cpanfile angepasst; t/07-no-dead-code.t gegen altes lib 11/15 rot, jetzt gruen (Quelltext-Scan, weil namespace::clean Symboltabellen-Checks blind macht). B 713ab7f: lib/MCP/Wiki/Git.pm geloescht -- Entfernung eines veroeffentlichten Moduls, VON GETTY ZU BESTAETIGEN, per Revert zuruecknehmbar. NICHT entfernt: commit_reason_required (Attribut + CLI-Flag, Public-API; Entscheidung bei Getty, README markiert es als wirkungslos). Nachzuziehen (nicht meine Lane): CLAUDE.md ('Altbestand'), .claude/skills/mcp-wiki-core/SKILL.md, .claude/agents/mcp-wiki-worker.md, PLAN.md Z.122 verweisen noch auf Git.pm/Altbestand. Moeglicher weiterer Abbau: ungenutzte decode_json/encode_json in History.pm (nicht geprueft).
+
+2026-10-15 20:49 KORREKTUR zur Abschlussnotiz: MCP::Wiki::Git wurde NICHT entfernt. Das Modul ist in MCP-Wiki-0.001 auf CPAN indexiert (metacpan: indexed, released); die Loeschung 713ab7f wurde per Revert 958bbed zurueckgenommen. Stand in main (40cc0fb): Git.pm bleibt als deprecated duenner Wrapper um MCP::Wiki::Git::History, API (new/wiki_root/repo/auto_commit/get_head_hash) erhalten, t/41-git-stub.t. Offen: der auto_commit-Parent-Fehler (Index-Entry als Parent-Liste) steckt auch in History.pm und wird vererbt -- braucht eigene Karte. Nachzuziehen: CLAUDE.md/mcp-wiki-core-Skill nennen Git.pm weiter 'Altbestand' (stimmt jetzt wieder, nur als Stub).
