@@ -52,6 +52,10 @@ Tools: `list_pages` `get_toc` `get_paragraph` `create_page` `update_paragraph`
   Schreibweise, im Namen wie im aufgelösten Pfad) und was keine `.md`-Datei ist. Ein
   Tool, das selbst einen Pfad baut, öffnet die Lücke wieder. `list_pages` listet genau
   das, was `_resolve_page` annimmt, und betritt `.git` nicht.
+- **`wiki_root` steht per Default auf `.`** (`bin/mcp-wiki`). Der Server schreibt damit in
+  das Verzeichnis, aus dem er gestartet wurde — ein unbedachter Testlauf oder Handgriff
+  ändert echte Dateien. Schreibende Tools gehören ausschließlich gegen ein
+  `Path::Tiny`-Tempdir getestet, niemals gegen den Checkout oder `$HOME`.
 - **Es gibt kein `root_dir`.** Tools werden über `_add_tool` registriert; der Wrapper
   lehnt jeden Aufruf mit `root_dir` ab, statt ihn gegen die konfigurierte Wurzel
   auszuführen, wo derselbe Seitenname eine andere Datei meinen kann. Neue Tools ebenfalls
@@ -60,7 +64,9 @@ Tools: `list_pages` `get_toc` `get_paragraph` `create_page` `update_paragraph`
   Tool-Aufruf baut ein frisches `Document` und parst neu; `line_start`/`line_end` sind
   Ergebnis *dieses* Parse-Laufs und nach jeder Änderung wertlos. Nie einen Zeilenbereich
   über zwei Aufrufe hinweg tragen — auch nicht in der Historie, wo genau deshalb der
-  Blob jedes Commits neu geparst wird.
+  Blob jedes Commits neu geparst wird. Die Adresse ist das Argument von vier Tools und
+  der Schlüssel, an dem die Git-Historie matcht; eine Korrektur der Konstruktion entwertet
+  alle Adressen, die Nutzer schon halten — ADR-Grade, nicht nebenbei.
 - **Tool-Handler sind Closures, keine Methoden.** `code => sub ($tool, $args)` — `$tool`
   ist die `MCP::Tool`-Instanz, nicht der Server. Der Server kommt über die Closure-Variable
   `$self` herein. Ausgabe ausschließlich via `$tool->structured_result(...)` bzw.
@@ -126,6 +132,12 @@ umbauen ohne Ticket — aber auch nie als korrektes Verhalten dokumentieren.
   attributiert, nirgends ausgewertet. `PLAN.md` beschreibt zusätzlich Content-Hashing,
   Conflict-Marker, `MCP::Wiki::Git::Blame` und Async-Callbacks — nichts davon existiert.
   **`PLAN.md` ist ein Entwurf, keine Spezifikation des Ist-Zustands.**
+
+## Docker-Setup — WIP
+
+Das Docker-Setup ist laut eigener Commit-Nachricht (9e571a6) WIP. Die Registry-Ziele in
+`dist.ini` und in `maint/release-after.pl` widersprechen sich. Das braucht eine
+Entscheidung, keine schleichende Politur.
 
 ## Verification
 
