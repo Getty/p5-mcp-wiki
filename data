@@ -1,0 +1,30 @@
+---
+claimed_at: 2026-10-25T08:31:59Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T08:31:59Z
+created: 2026-10-25T07:03:22Z
+id: 26
+priority: low
+started: 2026-10-25T08:31:59Z
+status: done
+tags:
+- tool-surface
+- errors
+title: Error messages leak absolute paths and Perl source locations and give no hints
+updated: 2026-10-25T08:31:59Z
+---
+
+Evidence (real stdio): "Invalid page: Page not found: nope.md at /home/.../MCP/Tool.pm line 33.", "Update failed: Heading not found: Nope at .../Document.pm line 88.", "Create failed: mkpath failed for /tmp/.../page.md: File exists at .../Server.pm line 308." (absolute wiki path exposed). "Heading not found: Notes" does not mention that "Intro#Notes" exists.
+
+Fix: no " at FILE line N." trailers and no absolute filesystem paths in tool errors (page names relative to the root only); an unknown heading_path error lists the page's valid heading_paths (cap at 50, then "... and N more").
+
+Tests: error texts for missing page, unknown heading, create on existing page and a mkpath failure contain neither the wiki root path nor / line \d+/; unknown heading lists the existing paths.
+
+tests: t/45-server-errors.t (85 assertions). Red on HEAD: 21 - 'at FILE line N' trailers on missing page (get_toc/get_paragraph/update), mkpath failure leaks root path + trailer, unknown heading lists no paths, no 50 cap/'... and 11 more' on a 61-heading page. Green guards: delete/rename missing page, create-existing, rename-onto-existing texts.
+
+Server-side only (Document is lane B): _add_tool passes every error result's text through new _error_text — strips ' at FILE line N.' (incl. ', <fh> line N'), trims, cuts the wiki root (realpath and configured, if absolute) from paths so they are root-relative (root alone -> '.'), decoding just that byte segment. Covers croak/die/Path::Tiny/History messages and the safety net. New _heading_hint: get_paragraph/update_paragraph with a heading_path the page lacks append 'Heading paths on this page:' + up to 50 paths + '... and N more' (or 'The page has no headings.'); checked against the TOC, not by parsing messages. Not applied to restore_section (History's historic 'Heading not found' would list current paths; left as is). Skill Handlers bullet. Verified: t/45 85/85; scratch with root '…/jürgen': mkpath on '日本' -> 'Create failed: mkpath failed for 日本: File exists', EACCES -> 'ro/x.md', no trailers; full tree suite red only in untracked t/46 t/47 t/55; chain HEAD+k16+k20+k28+k26 with t/43 t/52 t/44 t/45 PASS, Git::Raw t/42 t/49 t/50 t/51 PASS.
+
+Ready for commit after k28. Patch on top of k28: /tmp/mcp-wiki-k26/k26-on-k28.patch (lib/MCP/Wiki/Server.pm, .claude/skills/mcp-wiki-core/SKILL.md). Test: t/45-server-errors.t.
+
+Committed as 63965be
