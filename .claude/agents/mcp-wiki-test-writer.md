@@ -20,24 +20,24 @@ the intent is unclear or the briefed behavior seems wrong, stop and ask.
 Hard rules:
 
 - **No test may require `Git::Raw`.** It is not installed here, and the distribution is
-  meant to work without it. Git-dependent behavior is tested through the graceful-degrade
-  path (`git_history` returns undef → the tool answers "Git history not available"), or
-  skipped explicitly with a plan-level `skip_all` guarded by `eval { require Git::Raw }`.
+  meant to work without it. Git-dependent server behavior is tested through an injected
+  stand-in (`MCP::Wiki::Server->new(wiki_root => ..., git_history => $fake)`, as in
+  `t/36` and `t/37`) or the graceful-degrade path (`git_history` undef → "Git history not
+  available"). A test against the real Git::Raw API gets a plan-level `skip_all` guarded
+  by `eval { require Git::Raw }`.
 - **No test may write outside a `Path::Tiny` tempdir**, and none may touch the network.
-  `t/35-server-tools.t` shells out to `git init -q $wiki_dir` — that is the one allowed
-  external command, and it stays inside the tempdir.
+  External commands stay inside a tempdir: `git init` in `t/35`, and `t/08` runs
+  `docker-entrypoint.sh` against stub `id`/`stat`/`chown`/`setpriv`/`mcp-wiki` scripts.
 
 ## Mechanics that decide whether a test is real
 
-- **Address tools by name, not by index.** The existing suite reaches into
-  `$server->server->tools->[3]` for `create_page`. Every insertion into `_setup_tools`
-  silently repoints those tests at a different tool — they keep passing while testing
-  something else. New tests use
-  `my ($t) = grep { $_->name eq 'create_page' } @{$server->server->tools};` and call
-  `$t->code->($t, \%args)`. Migrate an index you touch anyway.
-- **`structured_result` arrives as JSON text.** Assertions currently regex over
-  `$result->{content}[0]{text}`. Decode it instead and assert on the data structure —
-  a regex over serialized JSON passes for the wrong reasons (key order, whitespace).
+- **Address tools by name, never by index** —
+  `my ($t) = grep { $_->name eq 'create_page' } @{$server->server->tools};`, then
+  `$t->code->($t, \%args)`. An index silently repoints when `_setup_tools` changes.
+- **`structured_result` arrives as JSON text.** Several assertions in `t/35` still regex
+  over `$result->{content}[0]{text}`. Decode it instead (`data_of` in `t/35`) and assert on
+  the data structure — a regex over serialized JSON passes for the wrong reasons (key
+  order, whitespace).
 - **Assert the file, not just the return value.** Every write tool has two observable
   effects: the tool result and what ended up on disk. A create/update/rename/delete test
   that never re-reads the file is half a test.
@@ -46,9 +46,10 @@ Hard rules:
   through the real tool, otherwise the test cannot notice a tool that stops firing.
 
 A test asserts intent: it must be able to fail when the logic changes. Reproduce a bug
-before fixing it and leave the regression behind. When you cover one of the known
-defects from `mcp-wiki-core`, write the test to the **correct** expectation and mark it
-`TODO` — do not encode the current broken output as the expected result.
+before fixing it and leave the regression behind. A test for an open defect card that is
+not being fixed yet is written to the **correct** expectation and marked `TODO` — never
+encode the broken output as the expected result.
 
-Numbered filenames continue the existing sequence (`t/00`, `t/10`, `t/20`, `t/30`,
-`t/35`, `t/40`). Verify with `prove -lr t/`; a single file with `prove -lv t/NN-x.t`.
+Numbered filenames continue the existing groups: `00`–`08` load and repo guards (cpanfile,
+README/POD sync, dead code, Docker), `10` TOC, `20` document, `30`–`37` server and tools,
+`40`–`41` git. Verify with `prove -lr t/`; a single file with `prove -lv t/NN-x.t`.

@@ -7,143 +7,157 @@ model: inherit
 
 # mcp-wiki-core
 
-MCP::Wiki is a stdio MCP server that manages a directory full of Markdown files as a
-wiki: extract the TOC, read/write sections paragraph by paragraph, optionally commit per
-change and restore sections from the Git history. One product, one
-distribution, one entry point (`bin/mcp-wiki`).
+MCP::Wiki is a stdio MCP server that manages a directory of Markdown files as a wiki:
+list pages, extract a page's TOC, read and replace one section at a time, optionally
+commit changes and restore a section from the Git history. A section is addressed
+by its `heading_path`, never by line numbers. The client is a language model reading
+untrusted wiki content, so `_resolve_page` is the only thing that keeps a call inside
+the wiki. Open defects and proposals are karr cards (`karr list`), not part of this skill.
 
 ## Vocabulary
 
 | Term | Meaning |
 |------|---------|
-| **page** | A `.md` file under the wiki_root and outside of `.git`, addressed **relative** to the wiki_root (`sub/dir/page.md`) |
-| **wiki_root** | Base directory; fixed at server start, no tool call can change it |
-| **section** | Range from one heading to the next heading (of any level) |
-| **heading_path** | `#`-separated chain that identifies a section — the only stable address |
-| **TOC entry** | `MCP::Wiki::TOC::Entry`, a heading plus line range and preview |
-| **on_change** | Callback chain; fires after writing, carries `{ type, page, ... }` |
-| **event type** | `create` · `update` · `rename` · `delete` · `restore` |
+| **page** | A `.md` file below the wiki_root, outside any `.git`, named relative to the root (`sub/dir/page.md`) |
+| **wiki_root** | Base directory, fixed at construction; no tool call can change it |
+| **section** | From a heading line to the line before the next heading of any level |
+| **body** | A section without its heading line — what `get_paragraph` returns and `update_paragraph` replaces |
+| **heading_path** | `#`-joined chain of a heading's ancestors and itself (`Intro#Background`) — the only stable address |
+| **TOC entry** | `MCP::Wiki::TOC::Entry`; `as_hash` is the wire form of `get_toc` |
+| **event** | Hashref passed to `on_change` handlers after a write; `type` is `create`·`update`·`rename`·`delete`·`restore` |
 
-## Layer Map
+## Layers
 
 ```
-bin/mcp-wiki                     # CLI: Getopt::Long -> Server->new -> to_stdio
-lib/MCP/Wiki.pm                  # only $VERSION + POD, no code
-lib/MCP/Wiki/Server.pm           # Moo; 9 tools in _setup_tools; on_change; Git auto-commit
-lib/MCP/Wiki/Document.pm         # a single page: content/get_toc/get_paragraph/set_paragraph
-lib/MCP/Wiki/TOC/Parser.pm       # line-based ATX parser -> entry list
-lib/MCP/Wiki/TOC/Entry.pm        # value object + as_hash (the wire form of the TOC)
-lib/MCP/Wiki/Git/History.pm      # Git::Raw: section history, restore, auto_commit
-lib/MCP/Wiki/Git.pm              # legacy code, NOT used by the server (see below)
+bin/mcp-wiki                  # Getopt::Long -> Server->new -> to_stdio
+lib/MCP/Wiki.pm               # $VERSION + POD only
+lib/MCP/Wiki/Server.pm        # Moo; the 9 tools, _resolve_page, on_change, auto-commit
+lib/MCP/Wiki/Document.pm      # one page: content, get_toc, get_paragraph, set_paragraph
+lib/MCP/Wiki/TOC/Parser.pm    # line-based ATX parser -> entries, builds heading_path
+lib/MCP/Wiki/TOC/Entry.pm     # value object
+lib/MCP/Wiki/Git/History.pm   # Git::Raw: section commits, restore, auto_commit
+lib/MCP/Wiki/Git.pm           # deprecated subclass of Git::History, published API only
 ```
 
-Tools: `list_pages` `get_toc` `get_paragraph` `create_page` `update_paragraph`
-`rename_page` `delete_page` `get_section_history` `restore_section`.
+`Document` trusts the `file_path` it gets and never reads its `wiki_root`; confinement
+is the Server's job. The Server never uses `MCP::Wiki::Git`.
 
-## Core invariants
+## Tools and events
 
-- **Every file access by a tool goes through `_resolve_page`.** The client is a
-  language model that reads unchecked wiki content; the page name is the only thing that
-  keeps a call inside the wiki. The helper walks the name component by component from the
-  resolved root, resolves existing parts immediately via `realpath` (symlinks, `..`)
-  and appends the not-yet-existing rest as plain names. Rejected is anything that
-  leaves the root (checked at every step with `subsumes`, i.e. at the path boundary:
-  `/wiki-evil` is not under `/wiki`), anything with a component `.git` (any
-  casing, in the name as well as in the resolved path) and anything that is not a `.md` file. A
-  tool that builds a path itself reopens the hole. `list_pages` lists exactly
-  what `_resolve_page` accepts, and does not enter `.git`.
-- **`wiki_root` defaults to `.`** (`bin/mcp-wiki`). The server therefore writes into
-  the directory it was started from — a careless test run or manual step
-  changes real files. Writing tools must only be tested against a
-  `Path::Tiny` tempdir, never against the checkout or `$HOME`.
-- **There is no `root_dir`.** Tools are registered via `_add_tool`; the wrapper
-  rejects any call with `root_dir` instead of running it against the configured root,
-  where the same page name can mean a different file. New tools also go
-  through `_add_tool`, never directly through `$server->tool`.
-- **`heading_path` is the section identity, line numbers are not.** Every
-  tool call builds a fresh `Document` and parses again; `line_start`/`line_end` are the
-  result of *this* parse run and worthless after any change. Never carry a line range
-  across two calls — not in the history either, which is exactly why the
-  blob of every commit is parsed anew. The address is the argument of four tools and
-  the key the Git history matches on; a correction of how it is built invalidates
-  all addresses users already hold — ADR grade, not on the side.
-- **Tool handlers are closures, not methods.** `code => sub ($tool, $args)` — `$tool`
-  is the `MCP::Tool` instance, not the server. The server comes in through the closure variable
-  `$self`. Output exclusively via `$tool->structured_result(...)` or
-  `$tool->text_result($msg, 1)` for errors. Details: skill `perl-mcp`.
-- **Errors are tool results, not exceptions.** Every handler wraps `_create_document`
-  in `eval` and answers with `text_result(..., 1)`. A `die` that propagates up to the transport
-  kills the stdio session — when extending the tools, carry the `eval` frame
-  along.
-- **Git is optional and lazy.** `git_history` returns `undef` when `use_git` is off
-  **or** `Git::Raw` is missing (`_build_git_history` checks both via `eval require`).
-  The history tools then answer cleanly with "Git history not available". This
-  softness is intentional: the distribution must stay installable and testable without Git::Raw.
-  Do not introduce a file-level `use Git::Raw`.
-- **Auto-commit hangs off `_fire_on_change`, not off the tools.** A new writing
-  tool commits automatically as soon as it calls `_fire_on_change` — and only then.
-  `restore` is excluded from auto-commit (`$event->{type} ne 'restore'`).
-- **on_change handlers must not cause a failure.** Handlers run in `eval`, errors
-  are `warn`ed; the write still counts as successful. This order —
-  write the file first, then callbacks — is the guarantee consumers build on.
-- **The TOC parser is deliberately line-based, not CommonMark.** It knows ATX headings
-  (`#`..`######`), toggles on ```` ``` ```` lines and skips 4-space indent.
-  It does **not** recognize setext headings (`===`/`---`), HTML comments or table cells.
-  Whoever wants real AST accuracy swaps out the parser — instead of patching special case after special case
-  into the regex.
-- **A section ends at the *next* heading, whatever its level.** An H1
-  therefore does not contain its H2 children; `content_preview` and `char_count` always refer
-  to this flat range — including the heading line itself.
+| Tool | Arguments (`[optional]`) | Event (keys besides `type`) |
+|------|--------------------------|-----------------------------|
+| `list_pages` | — | — |
+| `get_toc` | `page` | — |
+| `get_paragraph` | `page`, `heading_path` | — |
+| `create_page` | `page`, `[content]` | `create` {page, reason} |
+| `update_paragraph` | `page`, `heading_path`, `content`, `[reason]` | `update` {page, heading_path, reason} |
+| `rename_page` | `from`, `to` | `rename` {from, to} — no `page` key |
+| `delete_page` | `page` | `delete` {page} |
+| `get_section_history` | `page`, `heading_path` | — |
+| `restore_section` | `page`, `heading_path`, `commit_hash`, `[reason]` | `restore` {page, heading_path, commit_hash, reason} |
 
-## Sharp edges — verified, not assumed
+`reason` may be `undef`. `create_page` passes `$args->{reason}` on although its schema
+does not declare it.
 
-These three are defects, not conventions. Do not "fix them along the way", do not
-rework them without a ticket — but never document them as correct behavior either.
+## Invariants
 
-- **`_build_heading_path` does not build an ancestor chain.** It collects *all* preceding
-  headings with `level <= current level`, so siblings too. With
-  `# Intro / ## Alpha / ## Beta / # Other` you get `Intro#Alpha#Beta` and `Intro#Other`
-  instead of `Intro#Beta` and `Other`. That makes every section addressed via `heading_path`
-  order-dependent: an inserted sibling section changes the address of all
-  following ones. Correct would be a stack that clears everything `>= level` when entering a
-  level.
-- **`get_paragraph` and `set_paragraph` are not round-trip safe.** `get` returns the
-  section **including** the heading line (`line_start-1 .. line_end-1`); `set` replaces
-  from the line *after* the heading, but with the length including the heading — so
-  one line too many. `set_paragraph($p, get_paragraph($p)->{content})` duplicates the
-  heading and eats the first line of the following section.
-- **`restore_section` applies the patch twice.** `Git::History::restore_section`
-  already returns the **complete new document** in `content`; `Server.pm` passes
-  exactly that to `$doc->set_paragraph($heading_path, ...)` and thereby writes the
-  whole document into one section. Either History returns only the section text,
-  or Server writes the file directly — not both.
+**Confinement**
+- Every file access of a tool goes through `_resolve_page`. It walks the name component by
+  component from the realpath'd root, resolves each existing part at once (`realpath`:
+  symlinks, `..`), appends the not-yet-existing rest as plain names and checks
+  `$root->subsumes($path)` at every step — a path boundary, so `/wiki-evil` is not under
+  `/wiki`. It refuses any `.git` component (any case, in the name and in the resolved
+  path), the root itself, and any resolved basename not ending in `.md` (any case). A tool
+  that builds a path itself reopens the hole.
+- `list_pages` lists exactly the names `_resolve_page` accepts; it enters neither `.git`
+  nor directory symlinks.
+- `wiki_root` defaults to `.`: the server writes into the directory it was started from.
+  Exercise writing tools only against a `Path::Tiny` tempdir.
+- Register tools through `_add_tool`, never `$self->server->tool` directly: the wrapper
+  refuses any call carrying `root_dir`, so the same page name can never mean another file.
 
-## Legacy code
+**Handlers**
+- Handlers are closures: `code => sub ($tool, $args)`, `$tool` is the `MCP::Tool`, the
+  server is the closed-over `$self`. Answer with `$tool->structured_result({...})`, failures
+  with `$tool->text_result($msg, 1)`.
+- Wrap every call that can die (`_resolve_page`, `_create_document`, file I/O, History) in
+  `eval` and answer the failure as a tool result. `MCP::Server::handle` catches an escaping
+  die and answers JSON-RPC -32603 `Internal error`: the session survives, but the model gets
+  an opaque error instead of a readable `isError` result, and the message only reaches the
+  server log.
 
-- **`lib/MCP/Wiki/Git.pm` is dead.** The server uses exclusively
-  `MCP::Wiki::Git::History`. Both classes have `repo`/`auto_commit`; the variant in
-  `Git.pm` passes an index entry as the parent list to `create_commit` and so cannot
-  work. No callers, no tests — a candidate for deletion, not for further
-  maintenance.
-- **`_build_history_file` / `.mcp-wiki-history.json`** is built, but nobody
-  reads or writes it. The history comes entirely from the Git blobs.
-- **`update_content_hash`**, `Digest::SHA` in `Server.pm`, `to_json`,
-  `Types::Standard` in `Entry.pm` and `commit_reason_required`: imported or
-  declared as attributes, evaluated nowhere. `PLAN.md` additionally describes content hashing,
-  conflict markers, `MCP::Wiki::Git::Blame` and async callbacks — none of that exists.
-  **`PLAN.md` is a draft, not a specification of the current state.**
+**Addressing**
+- `heading_path` is built in `TOC::Parser::_build_heading_path` as an ancestor stack:
+  entering level L pops every open heading of level >= L, then pushes. `# Intro`,
+  `## Alpha`, `## Beta`, `# Other` give `Intro`, `Intro#Alpha`, `Intro#Beta`, `Other`;
+  `# A`, `### C`, `## B` give `A`, `A#C`, `A#B`.
+- Duplicate paths are not disambiguated; every lookup (`Document`, `History`) takes the
+  first matching entry.
+- The address is a tool argument, the key History matches commits on, and what users have
+  stored. Changing how it is built — the stack, the separator, which lines count as
+  headings, what their text is — invalidates every stored address: an ADR-grade decision,
+  never part of an unrelated change.
+- `line_start`/`line_end` (1-based, inclusive) belong to one parse. Every tool call builds a
+  fresh `Document` and parses again, and History re-parses each commit's blob; never carry a
+  line range from one call or commit to the next.
 
-## Docker setup — WIP
+**Sections**
+- Sections are flat: an H1 ends at its first H2 as at any other heading. TOC `line_start`,
+  `line_end`, `content_preview` (first 100 chars, then `...`) and `char_count` cover the
+  section **including** its heading line.
+- `get_paragraph` returns the body; `set_paragraph`/`update_paragraph` replace exactly the
+  body and keep the heading. get followed by set writes the file back byte-identical.
+- Lines before the first heading belong to no section; no section tool reaches them.
 
-The Docker setup is WIP according to its own commit message (9e571a6). The registry targets in
-`dist.ini` and in `maint/release-after.pl` contradict each other. That needs a
-decision, not creeping polish.
+**Parser**
+- Deliberately line-based, not CommonMark. A heading is a line starting at column 0 with
+  1–6 `#`, whitespace and text; a trailing `#` run is stripped even without a space before
+  it (`# C#` → `C`). A line starting with ```` ``` ```` (any indent) toggles a fence; lines
+  indented 4 spaces are skipped.
+- Setext headings and headings indented 1–3 spaces are never headings; `~~~` fences, front
+  matter and HTML comments are not understood, so a heading-shaped line inside them counts.
+  More accuracy means replacing the parser (see Addressing), not special cases in the regex.
+
+**Git and change events**
+- `git_history` is lazy: `undef` unless `use_git` is on and `eval { require Git::Raw }`
+  succeeds; the history tools then answer "Git history not available". That eval-require is
+  the sanctioned exception to `getty-perl-core`'s use-at-the-top rule — `Git::Raw` is a
+  `recommends`, never a file-level `use`.
+- `git_history` can be passed to `new`. The Server calls only `get_section_commits`,
+  `restore_section` and `auto_commit` on it; tests inject stand-ins (t/36, t/37).
+- `_fire_on_change` runs after the file is written: auto-commit first, then every handler in
+  `eval`, errors `warn`ed. The write counts as successful whatever they do.
+- Auto-commit hangs off `_fire_on_change`, not off the tools: a writing tool commits when it
+  fires its event, and only then. It needs `use_git` and a `git_history`; `restore` events
+  are excluded.
+- `restore_section`: History returns the complete restored document; the Server writes it
+  as is through `_resolve_page($page)->spew_utf8` and fires `restore`. Only History patches.
+
+**Declared, not built**
+- `commit_reason_required` (`--commit-reason-required`) is accepted and never read.
+- `PLAN.md` is the original draft; where it contradicts `lib/`, `lib/` wins.
+
+## Docker
+
+One image, `raudssus/mcp-wiki`, named by `docker_image` in `dist.ini`. The bundle's
+`Docker::API` builds it on every `dzil build`/`dzil test` (`DZIL_DOCKER_API_SKIP=1` skips)
+and pushes it on `dzil release` — publish gate. The entrypoint drops root to the owner of
+`$MCP_WIKI_ROOT` via `setpriv`, no shell in between, so arguments arrive unsplit. t/08 pins
+this; changing the registry or the build path is the maintainer's decision.
 
 ## Verification
 
-`prove -lr t/` is the canonical signal — recursive, so subdirectories created later
-under `t/` are not silently skipped. `dzil test` is the
-release equivalent.
+`prove -lr t/` is canonical (recursive). The suite runs without `Git::Raw` and without
+network; `t/40` accepts either load outcome of `MCP::Wiki::Git`, `t/41` covers it without a
+repository.
 
-The tests run without `Git::Raw` and without network; `t/40-git.t` deliberately only checks
-that the module fails cleanly without Git::Raw. That must stay that way.
+| Guard | Holds |
+|-------|-------|
+| t/05 | cpanfile matches what `lib/` and `bin/` load; `Git::Raw` stays `recommends` |
+| t/06 | README tool table = registered schemas (required/optional); bin POD = `GetOptions` |
+| t/07 | no `update_content_hash`, history JSON file, `Digest::SHA`, `to_json`, `Types::Standard` |
+| t/08 | Docker setup and the single registry |
+| t/36 | every tool stays inside the root — extend it for every new tool |
+| t/37 | restore writes History's document once, via a stand-in |
+
+A new or changed tool therefore also needs its README row (t/06) and t/36 coverage.

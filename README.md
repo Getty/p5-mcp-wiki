@@ -5,10 +5,14 @@ Markdown wiki MCP server with TOC extraction, paragraph-level editing, and git h
 ## Install with Docker (no Perl required)
 
 ```bash
-docker run --rm \
-    -v "$HOME:$HOME" -e HOME="$HOME" \
-    raudssus/mcp-wiki --help
+docker run -i --rm -v /path/to/wiki:/wiki raudssus/mcp-wiki
 ```
+
+The server speaks MCP over stdin/stdout (hence `-i`) and serves the mounted
+`/wiki`. Started as root (the default), it drops to the owner of that
+directory. Arguments replace the default `--wiki-root /wiki`, so repeat it
+when adding options. The image does not include the optional Git::Raw, so
+the history tools answer "not available" there.
 
 ## Install with Perl
 
@@ -19,6 +23,7 @@ cpanm MCP::Wiki
 ## Usage
 
 ```perl
+use v5.36;
 use MCP::Wiki::Server;
 
 my $server = MCP::Wiki::Server->new(
@@ -36,11 +41,12 @@ $server->to_stdio;
 
 ## MCP Tools
 
-Every tool takes `page` (or `from`/`to`) as a path relative to `wiki_root`. A
-section is addressed by `heading_path`, the `#`-joined chain of its ancestor
-headings such as `Introduction#Background` -- not by `heading`, and never by
-line number. Siblings are not part of the chain: with `# Intro`, `## Alpha`,
-`## Beta` the second section is `Intro#Beta`.
+Every tool except `list_pages` takes `page` (or `from`/`to`) as a path
+relative to `wiki_root`. A section is addressed by `heading_path`, the
+`#`-joined chain of its ancestor headings such as `Introduction#Background` --
+not by `heading`, and never by line number. Siblings are not part of the
+chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
+`Intro#Beta`.
 
 | Tool | Required | Optional | Description |
 |------|----------|----------|-------------|
@@ -54,7 +60,8 @@ line number. Siblings are not part of the chain: with `# Intro`, `## Alpha`,
 | `get_section_history` | `page`, `heading_path` | | Get git history for a section (needs `use_git` and Git::Raw) |
 | `restore_section` | `page`, `heading_path`, `commit_hash` | `reason` | Restore a section from a git commit (needs `use_git` and Git::Raw) |
 
-`reason` becomes the git commit message when `use_git` is on.
+`reason` becomes the git commit message when `use_git` is on; `restore_section`
+does not commit.
 
 ## Configuration
 

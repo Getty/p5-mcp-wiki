@@ -65,7 +65,8 @@ has line_end => (
 
 =attr content_preview
 
-First ~100 chars of the section content
+The first 100 characters of the section, heading line included, followed by
+C<...> when the section is longer.
 
 =cut
 has content_preview => (
@@ -75,7 +76,7 @@ has content_preview => (
 
 =attr char_count
 
-Total character count of the section
+Number of characters in the section, heading line included.
 
 =cut
 has char_count => (

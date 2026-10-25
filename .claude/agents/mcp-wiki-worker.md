@@ -28,32 +28,28 @@ Never `git commit`: leave the tree commit-ready and report what changed and why,
 
 ## Repo-specific notes — beyond the briefed skills
 
-The three defects listed under *Sharp edges* in `mcp-wiki-core` (heading_path collecting
-siblings, the get/set_paragraph off-by-one, restore_section applying its patch twice)
-are known and ticketed. Fix one only when that is the task;
-each has a blast radius wider than it looks, because `heading_path` is simultaneously
-the wire format of `get_toc`, the address argument of four tools, and the key the git
-history matches on. **Changing how a heading_path is built changes every stored address
-in every consumer's wiki** — that is an ADR-grade decision, not a bug fix in passing.
+Open defects and product proposals are karr cards; fix one only when it is your card.
+`heading_path` is simultaneously the wire format of `get_toc`, the address argument of four
+tools, and the key the git history matches on. **Changing how a heading_path is built — or
+which lines the parser treats as headings — changes stored addresses in every consumer's
+wiki.** That is an ADR-grade decision, not a bug fix in passing.
 
-`PLAN.md` is the original design draft. It describes content hashing, conflict markers,
-`MCP::Wiki::Git::Blame` and async callbacks that were never built, and it names test
-files that do not exist. Treat it as intent, never as a description of the code; when it
-contradicts `lib/`, `lib/` wins and the drift is worth a ticket.
+`PLAN.md` is the original design draft. Content hashing, conflict markers,
+`MCP::Wiki::Git::Blame` and async callbacks were never built, and its file list, tool
+arguments and dependencies differ from the code. Treat it as intent; when it contradicts
+`lib/`, `lib/` wins.
 
-The Docker setup is explicitly work in progress — commit 9e571a6 calls itself a
-workaround to be removed. `PERL5LIB` in the Dockerfile hardcodes the 5.40.3 site_perl
-paths, and `docker-entrypoint.sh` re-execs through `su - appuser -c "... $*"`, which
-re-splits arguments in a shell. A wiki path containing spaces breaks there. Do not
-polish this incrementally without asking; it needs a decision, not a patch.
-
-`maint/release-after.pl` pushes to Docker Hub (`raudssus/mcp-wiki`), while `dist.ini`
-currently sets `docker_local = 1` against a `localhost:5000` registry. Those two
-disagree about where images go. Never run either path yourself.
+The Docker setup is settled and pinned by `t/08-docker.t`: one image, `raudssus/mcp-wiki`,
+set as `docker_image` in `dist.ini`; the bundle's `Docker::API` builds it on `dzil build`
+and pushes it on `dzil release`. The entrypoint drops root to the owner of
+`$MCP_WIKI_ROOT` via `setpriv`, with no shell in between. Changing registry or build path is
+the maintainer's call. Build without a container engine with `DZIL_DOCKER_API_SKIP=1`;
+never run `dzil release` or `docker push`.
 
 ## Verification
 
 `prove -lr t/` is the canonical run — recursive, so subdirectories added under `t/`
-later are not silently skipped. `dzil test` is the release-time equivalent. The suite
+later are not silently skipped. `DZIL_DOCKER_API_SKIP=1 dzil test` is the release-time
+equivalent without a container engine. The suite
 must stay green **without** `Git::Raw` installed (it is not installed on this machine),
 and must never touch the network or a real user's wiki.

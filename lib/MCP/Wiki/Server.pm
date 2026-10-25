@@ -35,7 +35,8 @@ has use_git => (
 
 =attr commit_reason_required
 
-Require a reason for commits. Default: 0
+Accepted, but currently has no effect: a missing reason is not rejected.
+Default: 0
 
 =cut
 has commit_reason_required => (

@@ -8,11 +8,15 @@ use Path::Tiny;
 
 =head1 DESCRIPTION
 
-This is a pure-Perl TOC parser. It extracts headings from markdown
-by line-by-line parsing, ignoring headings inside code blocks.
+A pure-Perl, line-based parser for ATX headings (C<#> to C<######> at the
+start of a line). Lines between C<```> fence lines and lines indented by four
+spaces are skipped.
 
-For better accuracy with complex markdown, you can later install
-L<CommonMark> (XS/C library) which provides AST-based parsing.
+It is not a CommonMark parser: setext headings, C<~~~> fences, front matter
+and HTML comments are not recognized. Getting CommonMark accuracy would mean
+replacing this parser. Since every entry's C<heading_path> depends on which
+lines count as headings, such a replacement changes the addresses of existing
+sections.
 
 =cut
 

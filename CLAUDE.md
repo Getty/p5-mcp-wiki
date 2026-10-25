@@ -14,7 +14,7 @@ lib/MCP/Wiki/Document.pm     # read/write a single page
 lib/MCP/Wiki/TOC/Parser.pm   # line-based ATX parser -> entry list
 lib/MCP/Wiki/TOC/Entry.pm    # value object; as_hash is the wire form of the TOC
 lib/MCP/Wiki/Git/History.pm  # Git::Raw: section history, restore, auto-commit
-lib/MCP/Wiki/Git.pm          # legacy code, not used by the server
+lib/MCP/Wiki/Git.pm          # deprecated subclass of Git::History, unused by the server
 bin/mcp-wiki                 # CLI runner
 t/                           # Test::More, tempdir-based, run without Git::Raw
 ```
@@ -27,7 +27,8 @@ line numbers — those are only valid for the one parse run they came from.
 ```bash
 prove -lr t/            # canonical — recursive; plain `prove -l t/` silently skips subdirectories
 prove -lv t/10-toc.t    # single test
-dzil build              # build distribution
+dzil build              # build distribution and Docker image (needs a container engine)
+DZIL_DOCKER_API_SKIP=1 dzil build   # distribution only, no engine contact
 ```
 
 `Git::Raw` is not installed on this machine, and the suite must stay green without
@@ -40,10 +41,8 @@ it: `git_history` then returns `undef` and the history tools answer cleanly with
 hashing, conflict markers, `Git::Blame` and async callbacks in it do not exist. On
 contradiction `lib/` wins.
 
-Three verified defects are known and filed as karr tickets (heading_path collects
-siblings instead of ancestors, get/set_paragraph are not round-trip safe,
-restore_section applies its patch twice). Mechanics and blast radius are in
-skill `mcp-wiki-core`; do not fix them on the side.
+Known defects and product proposals are karr cards (`karr list`), not prose in
+the docs; work one only when it is the card you hold.
 
 A page is a `.md` file under `wiki_root`, outside of `.git`. Every
 file access by a tool goes through `_resolve_page` in `Server.pm`; the model is described in
@@ -59,7 +58,7 @@ the principle is the shared rule `getty-agent-delegation` (skilletor bundle
 |---|---|
 | Implement / refactor / debug, Docker | `mcp-wiki-worker` (default) |
 | Write or extend tests | `mcp-wiki-test-writer` |
-| Pre-release audit | `mcp-wiki-release-manager` |
+| Commits, `Changes`, card → done, pre-release audit | `mcp-wiki-release-manager` |
 
 The agents get their skills via `briefing.skills` (see `.claude/agents/`); the
 main agent delegates instead of loading them itself. Skill sources live under

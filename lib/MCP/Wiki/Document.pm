@@ -9,7 +9,7 @@ use MCP::Wiki::TOC::Parser;
 
 =attr file_path
 
-Path to the markdown file
+Required. Path to the markdown file the document reads and writes.
 
 =cut
 has file_path => (
@@ -19,7 +19,10 @@ has file_path => (
 
 =attr wiki_root
 
-Root directory of the wiki (for path validation)
+Required. Root directory of the wiki. The document does not read it and does
+no path validation of its own: it works on C<file_path> as given. Keeping
+that path inside the wiki is the caller's job; L<MCP::Wiki::Server> resolves
+every page name before it builds a document.
 
 =cut
 has wiki_root => (
@@ -110,7 +113,7 @@ __END__
     use MCP::Wiki::Document;
 
     my $doc = MCP::Wiki::Document->new(
-        path      => '/wiki/example.md',
+        file_path => '/wiki/example.md',
         wiki_root => '/wiki',
     );
 

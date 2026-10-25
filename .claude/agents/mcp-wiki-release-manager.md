@@ -24,30 +24,25 @@ gets its `Changes` entry in the same commit. After committing, move the karr car
 code goes back to the worker as a note on its card, not as your own fix. **Never**
 `git push`, tag, or run `dzil release` — the maintainer's call every time.
 
-1. **cpanfile vs. reality — the check this repo exists for.** Compare every `use`/
-   `require` in `lib/` and `bin/` against the declared list, in both directions. Known
-   state at the time of writing: `Git::Raw` is loaded by `Git/History.pm` but undeclared;
-   `Types::Standard` is used by `TOC/Entry.pm` but undeclared; `Markdown::Perl` and
-   `Syntax::Keyword::Try` are declared but used nowhere. `Git::Raw` is genuinely optional
-   (the code degrades gracefully) — that makes it a `recommends`/`suggests`, not an
-   omission. Say which of the two it should be; do not let it stay unmentioned.
-2. **dist.ini** — `[@Author::GETTY]`, `copyright_year` current. The Docker settings
-   (`docker_local = 1`, `localhost:5000/mcp-wiki`) and `maint/release-after.pl`
-   (pushes `raudssus/mcp-wiki` to Docker Hub) currently target different registries.
-   Flag the disagreement; do not pick a side.
-3. **`$VERSION`** — `grep -rn 'our \$VERSION' lib bin` returns exactly `lib/MCP/Wiki.pm`.
-4. **Changes** — a `{{$NEXT}}` section exists and covers the user-visible changes since
-   the last tag (`git log --oneline $(git describe --tags --abbrev=0 2>/dev/null)..`).
-   The tool list in the changelog must match the tools that actually register.
-5. **Documentation in sync** — the tool table appears in `README.md` and the tool names
-   in `_setup_tools`; `bin/mcp-wiki` POD lists the CLI options that `GetOptions` parses.
-   A tool or option added in one place and not the others is the drift most likely to
-   ship. Note also that `README.md` documents `get_paragraph` with a `heading` argument
-   while the tool takes `heading_path`.
-6. **`bin/mcp-wiki` shebang** is `#!/usr/local/bin/perl` — correct inside the Docker
-   image, wrong for a CPAN install. Confirm the release chain rewrites it.
-7. **`dzil build`** — clean, no missing files, no warnings.
-8. **`prove -lr t/`** — green. If every file dies with exit 2 and no plan, report it as
+1. **cpanfile vs. reality.** `t/05-cpanfile.t` compares `use`/`require` in `lib/` and
+   `bin/` with the declared runtime list in both directions; still eyeball what its regex
+   cannot see (pragmas, lowercase namespaces, string `require`s). `Git::Raw` is genuinely
+   optional — it stays a `recommends`.
+2. **dist.ini** — `[@Author::GETTY]`, `copyright_year` current, `docker_image =
+   raudssus/mcp-wiki` the only registry setting (`t/08-docker.t` pins the Docker setup).
+3. **`$VERSION`** — the next, unreleased version: above the last released version in
+   `Changes`, never copied back from CPAN.
+4. **Changes** — a `{{$NEXT}}` section exists and covers the user-visible changes since the
+   last release. The repo has no tags; find the release point from the last version
+   heading in `Changes` and `git log`. Breaking changes are marked as such.
+5. **Documentation in sync** — `t/06-readme-tools.t` checks the `README.md` tool table
+   against the registered tool schemas and the `bin/mcp-wiki` OPTIONS POD against
+   `GetOptions`. It cannot read prose: check that README and POD text describe what the
+   tools do now.
+6. **Build** — `DZIL_DOCKER_API_SKIP=1 dzil build` without a container engine (a plain
+   `dzil build` also builds the image); clean, no missing files, no warnings. Remove the
+   build directory and tarball afterwards.
+7. **`prove -lr t/`** — green. If every file dies with exit 2 and no plan, report it as
    a missing dependency in the build environment, not as a test failure.
 
 Report: ready, or a concise list of what blocks release. Report blockers back; the dispatching agent turns them into cards.
