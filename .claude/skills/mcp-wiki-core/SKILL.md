@@ -76,7 +76,8 @@ in-root symlink → its target); auto-commit stages those names.
   `readdir` give back — mixing the two re-encodes a name into a different file. Names
   going out (`list_pages`, `_page_name`) are decoded; History encodes before touching disk.
 - `list_pages` lists exactly the names `_resolve_page` accepts; it enters neither `.git`
-  nor directory symlinks, and skips a name that is not valid UTF-8 with a `warn`.
+  nor directory symlinks, and skips a name that is not valid UTF-8 or a subdirectory it
+  cannot read with a `warn` (an unreadable root is still an error).
 - `wiki_root` defaults to `.`: the server writes into the directory it was started from.
   Exercise writing tools only against a `Path::Tiny` tempdir.
 - Register tools through `_add_tool`, never `$self->server->tool` directly: the wrapper

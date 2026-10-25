@@ -156,6 +156,8 @@ sub _page_name {
 # a file that is no page. ".git" is not entered, and neither are directory
 # symlinks. Directory entries are bytes: a name is listed decoded from UTF-8,
 # one that is not valid UTF-8 cannot be sent back and is skipped with a warning.
+# So is a directory below the root that cannot be read, such as a root-only
+# lost+found; only an unreadable root fails the listing.
 sub _list_pages {
     my ($self) = @_;
 
@@ -163,7 +165,14 @@ sub _list_pages {
     my @pages;
     my @dirs = ($root);
     while (my $dir = shift @dirs) {
-        for my $child ($dir->children) {
+        my @children = eval { $dir->children };
+        if (my $err = $@) {
+            die $err if $dir eq $root;
+            warn 'list_pages: skipping directory '.$dir->relative($root).': '
+                .(ref $err && $err->{err} ? $err->{err} : $err)."\n";
+            next;
+        }
+        for my $child (@children) {
             next if $self->_is_git_dir_name($child->basename);
             if (-d $child) {
                 push @dirs, $child unless -l $child;
@@ -758,7 +767,8 @@ a wiki with git history is therefore out of reach of the tools.
 =back
 
 C<list_pages> returns exactly the names the other tools accept. It does not
-enter C<.git> or directories that are symlinks.
+enter C<.git> or directories that are symlinks, and skips a directory it cannot
+read with a warning; only an unreadable C<wiki_root> is an error.
 
 Page names are text; on disk a name is its UTF-8 encoding, so names and
 directories in any script work in every tool. A file whose name is not valid

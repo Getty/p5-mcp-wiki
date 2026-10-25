@@ -109,6 +109,8 @@
     returns them as text instead of double-encoded, pages below a non-ASCII
     directory are found again, error messages name them correctly, and names
     that are not valid UTF-8 are skipped with a warning.
+  - list_pages skips a directory it cannot read (such as a root-only
+    lost+found) with a warning instead of failing.
 
 0.001  2026-04-28
   - Initial release
