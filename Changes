@@ -113,6 +113,9 @@
     lost+found) with a warning instead of failing.
   - A directory, FIFO or device named like a page is refused by every tool;
     rename_page no longer moves such a directory.
+  - Tool errors no longer show absolute paths or Perl source locations; an
+    unknown heading_path is answered with the page's heading paths (up to
+    50).
 
 0.001  2026-04-28
   - Initial release

@@ -94,6 +94,10 @@ in-root symlink → its target); auto-commit stages those names.
   `<tool> failed: …` — a safety net, not a substitute for the eval. Without it
   `MCP::Server::handle` would answer JSON-RPC -32603 `Internal error`: the session survives,
   but the model gets an opaque error and the message only reaches the server log.
+- `_add_tool` passes every error text through `_error_text`: Perl's `at FILE line N.` goes,
+  the wiki root is cut from paths (bytes, decoded there) so names stay root-relative. Put
+  `$@` in a message freely; never build an absolute path into one yourself. An unknown
+  `heading_path` gets `_heading_hint`: the page's paths, at most 50, then `... and N more`.
 
 **Addressing**
 - `heading_path` is built in `TOC::Parser::_build_heading_path` as an ancestor stack:

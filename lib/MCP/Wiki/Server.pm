@@ -215,7 +215,7 @@ sub _create_document {
 # A handler answers its own failures with an error result that says what went
 # wrong. Should a die still escape one, it is answered here as well: MCP::Server
 # would turn it into an opaque JSON-RPC "Internal error" and the model would
-# learn nothing.
+# learn nothing. Either way the text goes through _error_text.
 sub _add_tool {
     my ($self, %spec) = @_;
 
@@ -231,11 +231,58 @@ sub _add_tool {
 
             my $result;
             eval { $result = $code->($tool, $args); 1 }
-                or return $tool->text_result("$name failed: $@", 1);
+                or $result = $tool->text_result("$name failed: $@", 1);
+
+            if (ref $result eq 'HASH' && $result->{isError}) {
+                $_->{text} = $self->_error_text($_->{text})
+                    for grep { ($_->{type} // '') eq 'text' } @{ $result->{content} // [] };
+            }
 
             return $result;
         },
     );
+}
+
+# An error as the model gets it. The messages come from croak, die and
+# Path::Tiny, so they carry Perl's " at FILE line N." and absolute paths. The
+# trailers go; the wiki root is cut from every path, which leaves the name
+# relative to it, the way pages are named (the root itself becomes "."). Such
+# paths are bytes, as on disk, and are decoded on the way.
+sub _error_text {
+    my ($self, $text) = @_;
+
+    $text =~ s/ at (?:(?! at ).)+? line \d+(?:, <[^>]*> (?:line|chunk) \d+)?\.$//mg;
+    $text =~ s/\s+\z//;
+
+    my @roots = grep { defined && length && Path::Tiny::path($_)->is_absolute }
+        eval { $self->_wiki_root_path->stringify }, $self->wiki_root;
+    for my $root (sort { length $b <=> length $a } @roots) {
+        $text =~ s{\Q$root\E(?:/+([^'":\n]*)|(?=['":\s]|\z))}{
+            my $rel = $1 // '';
+            my $bytes = $rel;
+            !length $rel ? '.'
+                : (utf8::downgrade($bytes, 1)
+                    ? eval { decode('UTF-8', $bytes, Encode::FB_CROAK) } : undef) // $rel
+        }ge;
+    }
+
+    return $text;
+}
+
+# For an error about a heading_path the page does not have: the paths it does
+# have, at most 50, so the model can pick the right one. Empty when the page
+# has the path after all or cannot be read.
+sub _heading_hint {
+    my ($self, $doc, $heading_path) = @_;
+
+    my @paths = eval { map { $_->heading_path } $doc->get_toc };
+    return '' if $@ || grep { $_ eq ($heading_path // '') } @paths;
+    return "\nThe page has no headings." unless @paths;
+
+    my $more = @paths - 50;
+    splice @paths, 50 if $more > 0;
+    return join "\n", '', 'Heading paths on this page:', @paths,
+        ($more > 0 ? "... and $more more" : ());
 }
 
 sub _setup_tools {
@@ -322,7 +369,8 @@ sub _setup_tools {
             }
 
             unless ($para) {
-                return $tool->text_result("Heading not found: $args->{heading_path}", 1);
+                return $tool->text_result("Heading not found: $args->{heading_path}"
+                    .$self->_heading_hint($doc, $args->{heading_path}), 1);
             }
 
             return $tool->structured_result($para);
@@ -407,8 +455,10 @@ sub _setup_tools {
             }
 
             eval { $doc->set_paragraph($args->{heading_path}, $args->{content}) };
-            if ($@) {
-                return $tool->text_result("Update failed: $@", 1);
+            if (my $err = $@) {
+                $err =~ s/\s+\z//;
+                return $tool->text_result("Update failed: $err"
+                    .$self->_heading_hint($doc, $args->{heading_path}), 1);
             }
 
             $self->_fire_on_change({
