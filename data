@@ -1,0 +1,32 @@
+---
+claimed_at: 2026-10-25T07:11:00Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:11:00Z
+created: 2026-10-25T07:03:14Z
+id: 18
+priority: medium
+started: 2026-10-25T07:11:00Z
+status: done
+tags:
+- robustness
+- performance
+title: TOC parsing is quadratic in the number of headings
+updated: 2026-10-25T07:11:00Z
+---
+
+Evidence: Parser.pm:189 calls `_build_heading_path`, which rescans every earlier heading (:216). get_toc: 2000 headings 2.6 s, 4000 11.1 s, 8000 43.8 s; update_paragraph on 8000 headings 39 s. With the path build stubbed, 4000 headings take 0.09 s.
+
+Fix: keep one ancestor stack during the main loop. Output must be identical; this is a performance fix, not an address change.
+
+Tests: an equivalence test over a varied structure (deep nesting, skipped levels, re-entry, duplicates, fenced and indented lines) pinning the exact heading_paths; no wall-clock assertion.
+
+Started. Plan: build heading_path from one ancestor stack carried through parse_content's entry loop; keep the name _build_heading_path (the core skill references it) with a new private signature (stack, level, heading). Identity check: dump of HEAD parser vs new over a large varied scratch doc.
+
+Pin test added: t/10-toc.t subtest 'heading_path, level and line range are pinned for a varied document' (18 entries, exact path/level/line_start/line_end; deep nesting, skipped level, re-entry, duplicates, fenced + 4-space lines, trailing #). Passes on HEAD parser; fails when the pop condition is weakened. Re-run prove -l t/10-toc.t after your refactor.
+
+Also found (not in scope, for the dispatcher): (1) t/05-cpanfile.t test 7 is red: someone's in-progress t/05 change now scans lowercase module names, and lib/MCP/Wiki/Git.pm (unchanged since HEAD) does 'use namespace::clean' while cpanfile does not declare it. That is a real missing runtime prereq; cpanfile is a lane-B file but this is not k18 — needs its own card or the card the t/05 change belongs to. (2) t/21-document-snapshot.t (untracked, 4/4 red) fails identically with HEAD's parser: it is a red-first spec for a Document read-once/snapshot card, independent of k18.
+
+Done. lib/MCP/Wiki/TOC/Parser.pm only: parse_content keeps one ancestor stack (@stack) across its entry loop and passes it to _build_heading_path($stack, $level, $heading), which pops levels >= L, pushes, joins. Same pop/push rule as before, applied once per heading instead of replaying 0..i per heading, so O(n) instead of O(n^2); name _build_heading_path kept because the core skill cites it. Identity: canonical JSON of every entry's as_hash (all 8 fields) from HEAD's parser (git worktree at 96dff7f; Parser/Document unchanged up to ac68307) vs. new, over 9 docs (empty, no headings, one heading, small hand-written, generated 500/2000/3000/4000/8000 headings with deep nesting, skipped levels, re-entry, duplicate paths, trailing # runs and 'C#', tabs, CRLF, backtick fences incl. indented and an unterminated one, 4- and 3-space indents, ~~~ blocks, setext, 7-hash lines): 6351568 bytes each, same sha256. Timings parse_content HEAD -> new: 4000 headings 10.73 s -> 0.20 s, 8000 41.67 s -> 0.37 s. Document on a tempdir copy, 4000: get_toc 9.99 -> 0.26 s, get_paragraph 9.95 -> 0.27 s, set_paragraph 8.79 -> 0.34 s; 8000 new: 0.70 / 0.50 / 0.48 s; get->set round-trip byte-identical. t/10-toc.t (incl. the test-writer's new pin subtest) passes against new AND HEAD parser; mutating >= to > turns subtests 5 and 7 red. prove -lr t/: all green except t/05 #7 and t/21 (both unrelated, see earlier note).
+
+Committed as 8f32e05
