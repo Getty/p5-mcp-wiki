@@ -1,0 +1,30 @@
+---
+claimed_at: 2026-10-25T07:18:49Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:18:49Z
+created: 2026-10-25T07:03:26Z
+id: 30
+priority: low
+started: 2026-10-25T07:18:49Z
+status: done
+tags:
+- robustness
+- encoding
+title: 'CRLF pages: get_paragraph returns stray CR, writes mix line endings'
+updated: 2026-10-25T07:18:49Z
+---
+
+Evidence: on a CRLF page get_paragraph returns bodies with stray \r leftovers; update_paragraph with LF content leaves "## Sub\r\nline1\nline2\n\n## Next\r\n". Writing back exactly what get_paragraph returned is byte-identical today.
+
+Fix (main agent's call): a page whose first line ends in CRLF is a CRLF page; get_paragraph returns its body with LF line endings; update_paragraph writes the content with the page's line ending; get then set stays byte-identical. LF pages unchanged.
+
+Tests: CRLF page round trip byte-identical; LF content into a CRLF page yields consistent CRLF; TOC headings carry no \r.
+
+Tests added: t/22-document-crlf.t (7 subtests: LF control, CRLF TOC free of CR, get returns LF body == LF-page result, unchanged get->set byte-identical incl. no-final-newline, set writes pure CRLF with exact bytes, no-newline page = LF). RED on current Document.pm: get_paragraph body (stray CR) and set bytes (bare LF); 2 subtests (byte-identical round trips) already pass today and guard against regression. A scratch CRLF-normalising Document makes all green.
+
+Also found (lane A file lib/MCP/Wiki/Git/History.pm, not touched): restore_section splits current_content with split /\n/ (no -1), so a restore drops the page's final newline and trailing blank lines - reproduced with get_section_content_at_commit stubbed: '# A\na\n## B\nb\n# C\nc\n' restores to '...# C\nc'; on a CRLF page it ends in a dangling '\r' ('...c\r'), and LF history content spliced into a CRLF page mixes endings. History also parses raw blobs, so in the empty-heading edge case ('# ' line on a CRLF page) its heading_paths differ from Document's (see handoff note).
+
+Done. lib/MCP/Wiki/Document.pm: new private _read_page (one content() read; CRLF page = first line ends in CRLF -> CRLF turned into LF, returns (text, eol)) and _write_page (LF -> page eol, spew_utf8). get_toc, get_paragraph and set_paragraph all work on _read_page's text; set_paragraph also turns CRLF in the new body into LF on CRLF pages so nothing comes out as CRCRLF. content() unchanged (raw read; Server's restore path uses it). Single-read structure from k19 kept; k14 can hook the read/write steps in _read_page/_write_page. Verified: t/22 red on tests 3+6 before, 7/7 green now; t/20, t/21 green; prove -lr t/ all green (t/42 skipped: Git::Raw not installed). Differential scratch run (HEAD Document via git show vs new): LF pages, a mixed page starting with LF, a no-newline page, empty page, fenced/indented page -> get_toc as_hash, every get_paragraph, get->set round trip, 6 bodies x every section set_paragraph bytes, missing-heading get/die: byte-identical JSON. CRLF twins of 6 LF pages (incl. no final newline, trailing blank lines, unicode): TOC as_hash and every get_paragraph equal the LF twin, every get->set byte-identical, every set = CRLF form of the LF twin's result, no bare LF / CRCR (218 checks). Deliberate consequences on CRLF pages only: (a) get_toc content_preview/char_count no longer count \r (match the LF twin); (b) an empty-heading line '# ' on a CRLF page no longer parses as a phantom heading '\r' (raw parse gave paths '\r', '\r#B'; now 'A#B' like the LF twin) - spec says heading_paths carry no \r; (c) a CRLF page with bare-LF lines further down is written back pure CRLF on the first set.
+
+Committed as 107f0ee
