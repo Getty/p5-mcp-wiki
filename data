@@ -1,0 +1,29 @@
+---
+claimed_at: 2026-10-25T08:30:37Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T08:30:37Z
+created: 2026-10-25T07:03:16Z
+id: 20
+priority: medium
+started: 2026-10-25T08:30:37Z
+status: done
+tags:
+- robustness
+title: One unreadable directory makes list_pages fail
+updated: 2026-10-25T08:30:37Z
+---
+
+Evidence: Server.pm:151. A mode-0000 subdirectory (e.g. a root-only lost+found on a volume) makes list_pages answer "Cannot list pages: Error opendir ... Permission denied". Realistic in Docker, where the entrypoint drops to the wiki owner.
+
+Fix: skip unreadable directories (warn to stderr), list everything else.
+
+Tests: wiki with a 0000 subdirectory: list_pages succeeds and lists the other pages (skip as root).
+
+tests: t/43-server-list-pages.t (0000 subdir; skipped as root/MSWin32). Red on HEAD: list_pages fails with Permission denied.
+
+_list_pages: each directory's children read in eval; a subdirectory that cannot be read is skipped with a warn ('list_pages: skipping directory lost+found: Permission denied'), the rest is listed; an unreadable wiki_root still fails list_pages. Server POD PAGE NAMES + skill list_pages bullet. Verified: t/52 4/4 (not skipped, uid 1000), t/43 t/36 green; scratch: root-only lost+found skipped, unreadable root -> isError. HEAD(k22)+k16+k20 with t/43+t/52: prove -lr t/ PASS. Note for card 26: the unreadable-root error still carries the absolute path and 'at …Server.pm line N.
+
+Ready for commit after k16. Patch on top of k16: /tmp/mcp-wiki-k20/k20-on-k16.patch (lib/MCP/Wiki/Server.pm, .claude/skills/mcp-wiki-core/SKILL.md). Test: t/52-server-list-pages-unreadable.t.
+
+Committed as 1d8d236
