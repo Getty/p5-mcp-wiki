@@ -1,0 +1,30 @@
+---
+claimed_at: 2026-10-25T08:32:53Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T08:32:53Z
+created: 2026-10-25T07:03:23Z
+id: 27
+priority: low
+started: 2026-10-25T08:32:53Z
+status: done
+tags:
+- tool-surface
+title: 'Tool schemas and descriptions: undeclared create_page reason, thin descriptions,
+  wrong server version'
+updated: 2026-10-25T08:32:53Z
+---
+
+Evidence: create_page forwards `reason` (Server.pm:316) but its schema does not declare it. update_paragraph's heading_path is described only as "Heading path to update" (no example, no hint it is the full path from get_toc). create_page does not say it fails on an existing page or what the default content is. Nothing says line numbers are valid for one call only. serverInfo reports version "1.0.0" (Server.pm:580 passes none; MCP::Wiki is 0.001).
+
+Fix (no existing argument changes): declare `reason` (optional string) on create_page and add it to the README table (t/06); heading_path descriptions say "full #-joined ancestor path as returned by get_toc, e.g. Intro#Background"; create_page and get_toc descriptions state the facts above; serverInfo version = $MCP::Wiki::VERSION. Tool annotations (readOnlyHint/destructiveHint) only if MCP 0.15 supports them without extra machinery; otherwise note it on the card.
+
+Tests: schema/description assertions on the tool objects; version via the server's initialize/serverInfo path.
+
+tests: t/46-server-schemas.t via tools/list + initialize (like t/34). Red on HEAD (17 of 23): create_page reason undeclared, heading_path descriptions (get_toc source, full path, example) for get_paragraph/update/get_section_history/restore, create_page description (exists/default), get_toc description (line numbers, heading_path), serverInfo version != $MCP::Wiki::VERSION. Asserts keywords /get_toc/ /\w#\w/ /full|ancestor/ /exist/ /default/ /line/, not exact prose. Annotations untested.
+
+create_page declares optional reason (README row + skill table; the 'passes reason although undeclared' skill note is gone). heading_path descriptions (get_paragraph, update_paragraph, get_section_history, restore_section): full #-joined ancestor path as get_toc returns it, e.g. "Introduction#Background". create_page description: fails if it exists, default content "# <page>". get_toc description: heading_path is the address, line numbers valid only for this read. serverInfo version = $MCP::Wiki::VERSION (Server now loads MCP::Wiki). Annotations: MCP 0.15 supports them as a plain MCP::Tool attribute (tools/list emits them), so added via _annotations (JSON::PP booleans, core): read-only for list/get_toc/get_paragraph/history; create additive; update/restore destructive+idempotent; rename/delete destructive; openWorldHint false everywhere. Annotations are untested by t/46 — TA could pin them (suggestion). Verified: t/46 23/23, t/06 13/13, t/05 t/34 t/00 green; scratch tools/list shows the annotations, initialize serverInfo {name MCP-Wiki, version 0.001}; tree suite red only in untracked t/47 t/55; chain HEAD+k16..k27 with t/43 t/52 t/44 t/45 t/46 PASS.
+
+Ready for commit after k26. Patch on top of k26: /tmp/mcp-wiki-k27/k27-on-k26.patch (lib/MCP/Wiki/Server.pm, README.md, .claude/skills/mcp-wiki-core/SKILL.md). Tests: t/46-server-schemas.t (+ existing t/06 now needs the README row, included).
+
+Committed as 9318504
