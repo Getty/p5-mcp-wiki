@@ -1,0 +1,30 @@
+---
+claimed_at: 2026-10-25T08:35:00Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T08:35:00Z
+created: 2026-10-25T07:56:31Z
+id: 56
+priority: low
+started: 2026-10-25T08:17:27Z
+status: done
+tags:
+- git
+- bug
+title: 'Rename commits carry the message ''Renamed page: '' without names'
+updated: 2026-10-25T08:35:00Z
+---
+
+Evidence (WA, found during k25, confirmed with real Git::Raw in scratch): History/Server _commit_message_for_event builds the generated message from $event->{page}; a rename event has from/to and no page, so a rename without reason is committed as "Renamed page: " (no names).
+
+Fix: the generated message for a rename names both pages ("Renamed page: from -> to"); other events unchanged; a given reason still wins (k25).
+
+Tests: opt-in real Git::Raw (t/51 style): rename without reason -> HEAD message names from and to.
+
+tests: t/54-git-rename-message.t (opt-in): rename without reason -> HEAD message contains from and to, plain and non-ASCII (sub/älter.md -> sub/neu-日本.md). Red (4 of 10: 'Renamed page:' only). No with-reason case: rename_page has no reason argument and its event no reason key, so there is nothing to test; reason-wins is t/51.
+
+_commit_message_for_event: for a rename the generated message names both pages, 'Renamed page: from -> to' (canonical names since k22); other events unchanged; a reason still wins (k25). Skill auto-commit bullet example. Verified: Git::Raw t/54 10/10 (plain + sub/älter.md -> sub/neu-日本.md), t/51 t/50 green; full tree prove -lr t/ PASS; chain HEAD+k16..k57+k56 PASS plain and with Git::Raw (t/42 t/48 t/49 t/50 t/51 t/54 t/56).
+
+Ready for commit after k57. Patch on top of k57: /tmp/mcp-wiki-k56/k56-on-k57.patch (lib/MCP/Wiki/Server.pm, .claude/skills/mcp-wiki-core/SKILL.md). Test: t/54-git-rename-message.t.
+
+Committed as 2c1d1e7
