@@ -49,15 +49,19 @@ error messages; confinement is the Server's job. The Server never uses `MCP::Wik
 | `list_pages` | — | — |
 | `get_toc` | `page` | — |
 | `get_paragraph` | `page`, `heading_path` | — |
-| `create_page` | `page`, `[content]` | `create` {page, reason} |
+| `create_page` | `page`, `[content]`, `[reason]` | `create` {page, reason} |
 | `update_paragraph` | `page`, `heading_path`, `content`, `[reason]` | `update` {page, heading_path, reason} |
 | `rename_page` | `from`, `to` | `rename` {from, to} — no `page` key |
 | `delete_page` | `page` | `delete` {page} |
 | `get_section_history` | `page`, `heading_path` | — |
 | `restore_section` | `page`, `heading_path`, `commit_hash`, `[reason]` | `restore` {page, heading_path, commit_hash, reason} |
 
-`reason` may be `undef`. `create_page` passes `$args->{reason}` on although its schema
-does not declare it. `page`, `from` and `to` are `_page_name` of the resolved path: relative
+Every tool sets `annotations => $self->_annotations(...)` (read-only, destructive,
+idempotent hints; never open-world) — a new tool needs one. `serverInfo.version` is
+`$MCP::Wiki::VERSION`. A `heading_path` description says it is the full path from `get_toc`
+with an example (t/46 checks the keywords).
+
+`reason` may be `undef`. `page`, `from` and `to` are `_page_name` of the resolved path: relative
 to the root as `list_pages` shows it, never the client's spelling (`x/../a.md` → `a.md`, an
 in-root symlink → its target); auto-commit stages those names.
 

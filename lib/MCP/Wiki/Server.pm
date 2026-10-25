@@ -9,6 +9,8 @@ use MCP::Wiki::Document;
 use Path::Tiny;
 use Carp qw( croak );
 use Encode qw( decode encode );
+use JSON::PP ();
+use MCP::Wiki;
 use feature 'signatures';
 no warnings 'experimental::signatures';
 
@@ -285,6 +287,21 @@ sub _heading_hint {
         ($more > 0 ? "... and $more more" : ());
 }
 
+# MCP tool annotations: hints for a client about what a tool does. Every tool
+# stays inside the wiki, so none is open-world; a tool that is not read-only
+# changes pages, and a destructive one may replace or remove what is there.
+sub _annotations {
+    my ($self, %hint) = @_;
+    return {
+        readOnlyHint  => $hint{read_only} ? JSON::PP::true : JSON::PP::false,
+        openWorldHint => JSON::PP::false,
+        ($hint{read_only} ? () : (
+            destructiveHint => $hint{destructive} ? JSON::PP::true : JSON::PP::false,
+            idempotentHint  => $hint{idempotent}  ? JSON::PP::true : JSON::PP::false,
+        )),
+    };
+}
+
 sub _setup_tools {
     my ($self) = @_;
 
@@ -292,6 +309,7 @@ sub _setup_tools {
     $self->_add_tool(
         name        => 'list_pages',
         description => 'List all wiki pages (.md files) below the wiki root',
+        annotations => $self->_annotations(read_only => 1),
         input_schema => {
             type => 'object',
             properties => {},
@@ -310,7 +328,11 @@ sub _setup_tools {
     # Tool: get_toc
     $self->_add_tool(
         name        => 'get_toc',
-        description => 'Get table of contents for a wiki page',
+        description => 'Get the table of contents of a wiki page: every heading with its level,'
+            .' heading_path and line range. heading_path is the address of a section that'
+            .' the other tools take; the line numbers are only valid for the page as this'
+            .' call read it and change with any edit.',
+        annotations => $self->_annotations(read_only => 1),
         input_schema => {
             type => 'object',
             properties => {
@@ -343,6 +365,7 @@ sub _setup_tools {
     $self->_add_tool(
         name        => 'get_paragraph',
         description => 'Get the body of a section (without its heading line) by heading path',
+        annotations => $self->_annotations(read_only => 1),
         input_schema => {
             type => 'object',
             properties => {
@@ -352,7 +375,7 @@ sub _setup_tools {
                 },
                 heading_path => {
                     type => 'string',
-                    description => 'Heading path (e.g. "Introduction#Background")',
+                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"',
                 },
             },
             required => ['page', 'heading_path'],
@@ -380,7 +403,10 @@ sub _setup_tools {
     # Tool: create_page
     $self->_add_tool(
         name        => 'create_page',
-        description => 'Create a new wiki page',
+        description => 'Create a new wiki page. Fails if a page of that name already exists.'
+            .' Without content the page gets the default content "# <page>", a heading'
+            .' made of the page name.',
+        annotations => $self->_annotations(),
         input_schema => {
             type => 'object',
             properties => {
@@ -391,6 +417,10 @@ sub _setup_tools {
                 content => {
                     type => 'string',
                     description => 'Initial page content',
+                },
+                reason => {
+                    type => 'string',
+                    description => 'Reason for creating the page (used as git commit message if git is enabled)',
                 },
             },
             required => ['page'],
@@ -426,6 +456,7 @@ sub _setup_tools {
     $self->_add_tool(
         name        => 'update_paragraph',
         description => 'Replace the body of a section (its heading line stays) by heading path',
+        annotations => $self->_annotations(destructive => 1, idempotent => 1),
         input_schema => {
             type => 'object',
             properties => {
@@ -435,7 +466,7 @@ sub _setup_tools {
                 },
                 heading_path => {
                     type => 'string',
-                    description => 'Heading path to update',
+                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"',
                 },
                 content => {
                     type => 'string',
@@ -480,6 +511,7 @@ sub _setup_tools {
     $self->_add_tool(
         name        => 'rename_page',
         description => 'Rename or move a wiki page within the wiki root',
+        annotations => $self->_annotations(destructive => 1),
         input_schema => {
             type => 'object',
             properties => {
@@ -532,6 +564,7 @@ sub _setup_tools {
     $self->_add_tool(
         name        => 'delete_page',
         description => 'Delete a wiki page',
+        annotations => $self->_annotations(destructive => 1),
         input_schema => {
             type => 'object',
             properties => {
@@ -569,6 +602,7 @@ sub _setup_tools {
     $self->_add_tool(
         name        => 'get_section_history',
         description => 'Get commit history for a section identified by heading path',
+        annotations => $self->_annotations(read_only => 1),
         input_schema => {
             type => 'object',
             properties => {
@@ -578,7 +612,7 @@ sub _setup_tools {
                 },
                 heading_path => {
                     type => 'string',
-                    description => 'Heading path (e.g. "Introduction#Background")',
+                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"',
                 },
             },
             required => ['page', 'heading_path'],
@@ -610,6 +644,7 @@ sub _setup_tools {
     $self->_add_tool(
         name        => 'restore_section',
         description => 'Restore a section from a historical commit',
+        annotations => $self->_annotations(destructive => 1, idempotent => 1),
         input_schema => {
             type => 'object',
             properties => {
@@ -619,7 +654,7 @@ sub _setup_tools {
                 },
                 heading_path => {
                     type => 'string',
-                    description => 'Heading path to restore',
+                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"',
                 },
                 commit_hash => {
                     type => 'string',
@@ -688,7 +723,7 @@ sub _setup_tools {
 
 sub _build_server {
     my ($self) = @_;
-    return MCP::Server->new(name => 'MCP-Wiki');
+    return MCP::Server->new(name => 'MCP-Wiki', version => $MCP::Wiki::VERSION);
 }
 
 =method on_change

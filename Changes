@@ -116,6 +116,11 @@
   - Tool errors no longer show absolute paths or Perl source locations; an
     unknown heading_path is answered with the page's heading paths (up to
     50).
+  - create_page declares its optional reason; heading_path is described as
+    the full path from get_toc with an example; create_page and get_toc say
+    how they behave; every tool carries MCP annotations (read-only,
+    destructive, idempotent hints); serverInfo reports the distribution's
+    version instead of 1.0.0.
 
 0.001  2026-04-28
   - Initial release

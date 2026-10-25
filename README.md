@@ -53,7 +53,7 @@ chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
 | `list_pages` | | | List all wiki pages |
 | `get_toc` | `page` | | Get table of contents for a page |
 | `get_paragraph` | `page`, `heading_path` | | Get the body of the section under a heading path (heading line not included) |
-| `create_page` | `page` | `content` | Create a new wiki page |
+| `create_page` | `page` | `content`, `reason` | Create a new wiki page; fails if it exists, default content `# <page>` |
 | `update_paragraph` | `page`, `heading_path`, `content` | `reason` | Replace a section's body; the heading line stays |
 | `rename_page` | `from`, `to` | | Rename/move a page |
 | `delete_page` | `page` | | Delete a page |
