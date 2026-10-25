@@ -1,0 +1,28 @@
+---
+claimed_at: 2026-10-25T07:13:37Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:13:37Z
+created: 2026-10-25T07:03:15Z
+id: 19
+priority: medium
+started: 2026-10-25T07:13:37Z
+status: done
+tags:
+- bug
+- concurrency
+title: update_paragraph and get_paragraph read the page twice
+updated: 2026-10-25T07:13:37Z
+---
+
+Evidence: Document.pm:84 (via get_toc) and :93 read the file separately; get_paragraph likewise (:53, :60). Repro: a second writer inserting a section between the two reads made an edit meant for "B" overwrite the body of the newly inserted section.
+
+Fix: each operation reads the file once and parses and splices that same string.
+
+Tests: count reads of the page per get_paragraph/update_paragraph call (e.g. wrap the content read) and assert one; plus a deterministic interleaving test if the structure allows it.
+
+Tests added: t/21-document-snapshot.t (Path::Tiny-level read hook; no private names). Per get_/set_paragraph: exactly 1 read of the page; and with the file rewritten (section inserted above B) right after the first read, get returns B's body from the snapshot and set edits B in the snapshot. RED on HEAD (2 reads; edit/body come from shifted lines), GREEN on a scratch one-read Document. Re-run prove -l t/21-document-snapshot.t after your change.
+
+Done. lib/MCP/Wiki/Document.pm: get_paragraph and set_paragraph each call content() once and both parse and split/splice that same string via a new private _find_entry($content, $heading_path) (parse_content + first match, as before). Public API (content, get_toc, get_paragraph, set_paragraph), return values and the 'Heading not found' die unchanged; get_toc untouched. Verified: t/21-document-snapshot.t 4/4 red with HEAD's Document.pm (copy via git show), 4/4 green now; t/20-document.t green (round trips byte-identical). prove -lr t/: everything green (t/38 included) except t/22-document-crlf.t tests 3 and 6, which fail identically with HEAD's Document.pm - red-first spec of k30, not touched here.
+
+Committed as 43363c8
