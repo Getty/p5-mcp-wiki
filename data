@@ -1,0 +1,25 @@
+---
+claimed_at: 2026-10-25T07:16:04Z
+claimed_by: mcp-wiki-test-writer
+class: standard
+completed: 2026-10-25T07:16:04Z
+created: 2026-10-25T07:03:29Z
+id: 33
+priority: medium
+started: 2026-10-25T07:16:04Z
+status: done
+tags:
+- tests
+title: 'Test-suite gaps: regex over JSON, unused git init, no request-level test'
+updated: 2026-10-25T07:16:04Z
+---
+
+Evidence: t/35 still asserts by regex over serialized JSON in about 10 places (t/35:43,44,55,67,68,79,90,115,130,162); k6 added `data_of` but changed no assertion. t/35:33 runs `git init` (needs the git CLI, unquoted path) for nothing. t/40 cannot fail in practice. No test drives MCP's own request handler (`tools/list` descriptions and required fields, `tools/call` with schema validation); that is where the non-ASCII list_pages bug would have shown. The t/36:78-79 comment gives the obsolete "kills the stdio session" reason.
+
+Fix (test-writer): decode instead of regex; drop the unused git init; make t/40 meaningful or remove it; add a request-level test through MCP::Server's handler (initialize, tools/list, one tools/call per read tool); fix the t/36 comment.
+
+t/35: all regex-over-JSON asserts decoded via data_of; traversal check now asserts isError + exact 'Invalid page: Path outside wiki root: ...' text; git init removed (nothing used it). t/40 deleted (t/41 require_ok is stricter and covers the stub). New t/34-server-mcp-requests.t drives MCP::Server->handle with a Context like the stdio transport (initialize, tools/list x9 with description/required/schema, tools/call list_pages/get_toc/get_paragraph, missing-arg -> -32602 'Invalid arguments', unknown tool). Passes on HEAD; dropping heading_path from get_paragraph required fails it. Not done: t/36 comment (lane A). SKILL.md:152 and PLAN.md:176 still mention t/40.
+
+t/34 new, t/35 decoded, t/40 removed; see notes
+
+Committed as 17c961c
