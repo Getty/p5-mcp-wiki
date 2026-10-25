@@ -64,6 +64,9 @@
     page, a failing history lookup or restore)
   - namespace::clean is declared as a runtime requirement: MCP::Wiki::Git
     loads it, so a clean install failed t/00-load and t/41
+  - get_paragraph and update_paragraph read the page once and work on that
+    snapshot; a write landing in between can no longer make an edit hit the
+    wrong section
 
 0.001  2026-04-28
   - Initial release

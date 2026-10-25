@@ -53,14 +53,13 @@ heading line.
 
 sub get_paragraph {
     my ($self, $heading_path) = @_;
-    my @entries = $self->get_toc;
+    my $content = $self->content;
 
-    # Find entry by heading_path
-    my ($entry) = grep { $_->heading_path eq $heading_path } @entries;
+    my $entry = $self->_find_entry($content, $heading_path);
     return unless $entry;
 
     # The section is the body: the heading line (line_start) is not part of it
-    my @lines = split /\n/, $self->content;
+    my @lines = split /\n/, $content;
     my $section = join("\n", @lines[$entry->line_start .. $entry->line_end - 1]);
 
     return {
@@ -84,16 +83,16 @@ two are inverse. Dies when the heading does not exist.
 
 sub set_paragraph {
     my ($self, $heading_path, $new_content) = @_;
-    my @entries = $self->get_toc;
+    my $content = $self->content;
 
-    my ($entry) = grep { $_->heading_path eq $heading_path } @entries;
+    my $entry = $self->_find_entry($content, $heading_path);
     unless ($entry) {
         die "Heading not found: $heading_path";
     }
 
     # Keep trailing empty fields (-1): the blank line before the next heading
     # and the file's final newline survive a get_paragraph -> set_paragraph trip
-    my @new_lines = split /\n/, $self->content, -1;
+    my @new_lines = split /\n/, $content, -1;
 
     # Replace the body of the section; the heading line itself stays
     splice @new_lines, $entry->line_start, $entry->line_end - $entry->line_start,
@@ -102,6 +101,15 @@ sub set_paragraph {
     Path::Tiny::path($self->file_path)->spew_utf8(join("\n", @new_lines));
 
     return 1;
+}
+
+# The entry's line range is only valid for the content it was parsed from:
+# callers read the page once and cut that same string, never a second read.
+sub _find_entry {
+    my ($self, $content, $heading_path) = @_;
+    my ($entry) = grep { $_->heading_path eq $heading_path }
+        MCP::Wiki::TOC::Parser->parse_content($content);
+    return $entry;
 }
 
 1;
