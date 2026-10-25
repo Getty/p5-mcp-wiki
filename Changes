@@ -100,6 +100,11 @@
     "Reason:" trailer); without one the generated message is used.
     restore_section's reason is described as what it is: passed on in the
     restore event, not committed.
+  - on_change events name pages by their canonical path below the wiki root
+    (as list_pages shows them), also when the client used ./, .. or an
+    in-root symlink, so auto-commit stages the right file; each handler gets
+    its own copy of the event. bin/mcp-wiki no longer installs a debug
+    handler that warned on every change.
 
 0.001  2026-04-28
   - Initial release

@@ -138,6 +138,13 @@ sub _resolve_page {
     return $path;
 }
 
+# The name of a page _resolve_page returned, relative to the root: the form
+# list_pages shows. Events carry this, whatever spelling the client used.
+sub _page_name {
+    my ($self, $path) = @_;
+    return Path::Tiny::path($path)->relative($self->_wiki_root_path)->stringify;
+}
+
 # All pages below the root, as sorted names relative to it. A page is listed
 # only if _resolve_page accepts its name, so the list never offers something
 # the other tools refuse: no symlink leading out of the root, into ".git" or to
@@ -332,7 +339,7 @@ sub _setup_tools {
 
             $self->_fire_on_change({
                 type   => 'create',
-                page   => $args->{page},
+                page   => $self->_page_name($page_path),
                 reason => $args->{reason},
             });
 
@@ -382,7 +389,7 @@ sub _setup_tools {
 
             $self->_fire_on_change({
                 type   => 'update',
-                page   => $args->{page},
+                page   => $self->_page_name($doc->file_path),
                 heading_path => $args->{heading_path},
                 reason => $args->{reason},
             });
@@ -435,8 +442,8 @@ sub _setup_tools {
 
             $self->_fire_on_change({
                 type   => 'rename',
-                from   => $args->{from},
-                to     => $args->{to},
+                from   => $self->_page_name($from_path),
+                to     => $self->_page_name($to_path),
             });
 
             return $tool->structured_result({
@@ -474,7 +481,7 @@ sub _setup_tools {
 
             $self->_fire_on_change({
                 type => 'delete',
-                page => $args->{page},
+                page => $self->_page_name($page_path),
             });
 
             return $tool->structured_result({
@@ -589,7 +596,7 @@ sub _setup_tools {
 
             $self->_fire_on_change({
                 type         => 'restore',
-                page         => $args->{page},
+                page         => $self->_page_name($doc->file_path),
                 heading_path => $args->{heading_path},
                 commit_hash  => $args->{commit_hash},
                 reason       => $args->{reason},
@@ -609,6 +616,20 @@ sub _build_server {
     my ($self) = @_;
     return MCP::Server->new(name => 'MCP-Wiki');
 }
+
+=method on_change
+
+    $server->on_change(sub ($event) { ... });
+
+Registers a handler, called after a writing tool changed a page. Every handler
+gets a hash reference of its own: C<type> (C<create>, C<update>, C<rename>,
+C<delete> or C<restore>) and, by type, C<page>, C<heading_path>, C<reason>,
+C<commit_hash>, or C<from> and C<to> for a rename. Page names are relative to
+C<wiki_root>, the way C<list_pages> shows them, whatever spelling the client
+used: C<sub/./a.md> arrives as C<sub/a.md>, a symlink as the page it points
+to. A handler that dies is warned about; the change stands.
+
+=cut
 
 sub on_change {
     my ($self, $handler) = @_;
@@ -641,9 +662,9 @@ sub _fire_on_change {
         }
     }
 
-    # Call user handlers
+    # Call user handlers, each with an event of its own
     for my $handler (@{$self->_on_change_handlers}) {
-        eval { $handler->($event) };
+        eval { $handler->({ %$event }) };
         warn "on_change error: $@" if $@;
     }
 }

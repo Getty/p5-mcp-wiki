@@ -57,7 +57,9 @@ error messages; confinement is the Server's job. The Server never uses `MCP::Wik
 | `restore_section` | `page`, `heading_path`, `commit_hash`, `[reason]` | `restore` {page, heading_path, commit_hash, reason} |
 
 `reason` may be `undef`. `create_page` passes `$args->{reason}` on although its schema
-does not declare it.
+does not declare it. `page`, `from` and `to` are `_page_name` of the resolved path: relative
+to the root as `list_pages` shows it, never the client's spelling (`x/../a.md` → `a.md`, an
+in-root symlink → its target); auto-commit stages those names.
 
 ## Invariants
 
@@ -140,7 +142,8 @@ does not declare it.
 - `git_history` can be passed to `new`. The Server calls only `get_section_commits`,
   `restore_section` and `auto_commit` on it; tests inject stand-ins (t/36, t/37).
 - `_fire_on_change` runs after the file is written: auto-commit first, then every handler in
-  `eval`, errors `warn`ed. The write counts as successful whatever they do.
+  `eval` with a shallow copy of its own, errors `warn`ed. The write counts as successful
+  whatever they do.
 - Auto-commit hangs off `_fire_on_change`, not off the tools: a writing tool commits when it
   fires its event, and only then. It needs `use_git` and a `git_history`; `restore` events
   are excluded. `auto_commit` takes a path or a list of paths and stages each as the work
