@@ -1,0 +1,38 @@
+---
+claimed_at: 2026-10-25T07:23:12Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:23:12Z
+created: 2026-10-25T07:03:08Z
+id: 12
+priority: critical
+started: 2026-10-25T07:23:12Z
+status: done
+tags:
+- git
+- bug
+title: Git history and auto-commit fail against the real Git::Raw API
+updated: 2026-10-25T07:23:12Z
+---
+
+Evidence (Git::Raw 0.90, throwaway install /tmp/mcp-wiki-gitraw, never a dependency):
+- Git/History.pm calls methods that do not exist: `Tree->entry` (:65, :115; real: `entry_bypath`), `Git::Raw::Oid->new` (:109), `Index->files` (:215), `Index->get` (:232), `Repository->create_commit` (:226; real: `Git::Raw::Commit->create`).
+- The walker returns Commit objects but :61 passes them to `lookup` ("commit is not of type Git::Raw::Commit").
+- :231 commits the old HEAD tree instead of the index tree; the parent list at :232 is an index entry; :214 dies on a repo without commits.
+- `Blob->content` returns bytes and is compared with character-string heading_paths: non-ASCII headings never match, restore would double-encode.
+- Over stdio with `--git`: update + rename left `git log` at the initial commit; `get_section_history` answered -32603 "Internal error"; every write still reported success.
+- JSON::MaybeXS is imported at History.pm:8 and used nowhere (the only lib/ use; drop it and its cpanfile line if nothing else needs it; t/05 enforces both directions).
+
+Scope: make `auto_commit` (create/update events), `get_section_commits`, `get_section_content_at_commit` and `restore_section` work against the real API: stage the page, write the index tree, commit with HEAD as parent (none on an unborn branch), update HEAD; walk Commit objects; decode blob content as UTF-8. Update History.pm POD to what is true (drop the never-returned `conflict` result and the ignored `reason` option, and the dead `conflict` branch in Server.pm restore_section). Out of scope (own cards): rename/delete commits, which commits get listed, restore newline handling, commit message wording.
+
+Tests: a new opt-in file with plan-level `skip_all` unless `eval { require Git::Raw }`, against a tempdir repo: create + update produce commits; get_section_history returns them; restore_section brings back old text; a non-ASCII heading works. Suite stays green without Git::Raw; run it with PERL5LIB=/tmp/mcp-wiki-gitraw/lib/perl5 to see it pass.
+
+tests: t/42-git-history-real.t (opt-in, skip_all without Git::Raw). Red on HEAD with Git::Raw 0.90: 9 of 27 fail (no commits created, history errors, restore dies on Oid->new, non-ASCII).
+
+For the test-writer (t/42-git-history-real.t, not mine to edit): (1) line 44 data_of uses decode_json on the tool text, which is a character string (MCP::Tool structured_result -> Mojo to_json; the wire encodes once) -> dies 'malformed UTF-8' on the non-ASCII history check after 23 passing tests. Fix: JSON::MaybeXS->new(utf8 => 0)->decode(...) or use structuredContent. With only that line changed all 28 pass. (2) Its HOME/XDG_CONFIG_HOME isolation is not effective: libgit2 fixes its config search path when Git::Raw loads, and the BEGIN require runs before the runtime 'local $ENV{HOME}' -> on this machine commits use the developer's identity and the MCP::Wiki fallback is never exercised. Set the env before Git::Raw loads (BEGIN before the require) to cover it. I verified the fallback by running with HOME set before perl starts. Also found (not fixed, existing cards cover them): raw client page names reach History unnormalized ('./p.md' -> index add 'invalid path', history empty) - k22; rename/delete auto-commit still warn (undef path / missing file) - k21; History keeps die (not croak) and a runtime require in _get_parser - house-rule drift, untouched.
+
+Done. History.pm against Git::Raw 0.90: auto_commit stages the page, writes index + index tree, commits with HEAD as parent (none on an unborn branch, detected via EUNBORNBRANCH so orphan branches work too), Commit->create moves HEAD/branch; 'No changes to commit' when tree == HEAD tree; signature = Signature->default(repo) else MCP::Wiki <mcp-wiki@localhost>. get_section_commits walks Commit objects (empty list on unborn branch); get_section_content_at_commit uses Commit->lookup (abbrev hashes ok, unknown -> 'Commit not found'). Git::Raw boundary is bytes: paths and commit message encoded UTF-8 in, blob/message/author decoded out. POD made true (no conflict result, no reason option for restore, DESCRIPTION). JSON::MaybeXS import dropped; cpanfile: requires JSON::MaybeXS moved to on test (tests load it; k17 was committed). Server.pm: dead conflict branch removed. Git.pm: stale 'Known defect' POD removed. Verified: t/05 t/07 t/30 t/34-t/38 t/41 green with and without Git::Raw; t/42 skips without Git::Raw, with it 23/23 then dies in its own data_of (note above) - a copy with only data_of fixed passes 28/28, also with HOME isolated before perl starts (fallback identity confirmed in git log); scratch edge cases: no-op commit, detached HEAD, orphan branch, Git.pm wrapper + get_head_hash, rename/delete unchanged (warn); stdio bin/mcp-wiki --git: create+update -> 2 commits, history count 2, clean status. Full prove -lr t/ reds are only other cards' pending specs (t/23 k14, t/24 k15, t/39 k22, t/43 k16/k20, t/44 k28) plus t/42's data_of.
+
+SKILL.md (Git and change events + guard table) updated with the k12 facts per coordinator: lazy Git::Raw / segfault load order, History (+ deprecated MCP::Wiki::Git) is the only Git::Raw caller with bytes in/out, commit identity fallback, unborn-branch first commit, unchanged index commits nothing; t/42 row.
+
+Committed as c5e8aaa
