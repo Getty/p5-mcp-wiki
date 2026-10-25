@@ -149,15 +149,37 @@ sub read_for_update {
 
 Replaces the page with C<$text>, text with LF line endings as
 L</read_for_update> returns it, written as UTF-8 with every LF turned into
-C<$eol>. Every write of a document goes through here.
+C<$eol>. The page keeps its permission bits. Dies, leaving the page as it
+is, when the page is read-only. Every write of a document goes through here.
 
 =cut
 
 sub write_text {
     my ($self, $text, $eol) = @_;
+    my $page = Path::Tiny::path($self->file_path);
+
+    # spew renames a new file over the page, which works whatever the page's
+    # mode: a page we may not write has to be refused here
+    my $mode = (stat $page)[2];
+    croak 'Page '.$self->_page_name.' is read-only: refusing to write it'
+        if defined $mode && !-w _;
+
     $text =~ s/\n/\r\n/g if $eol eq "\r\n";
     utf8::encode($text);    # the exact inverse of the decode in _slurp
-    Path::Tiny::path($self->file_path)->spew_raw($text);
+
+    # Under umask 077 the new file starts out owner-only, so it is never
+    # readable by more than the page was while it takes its place; then it
+    # gets the page's mode back. A page gone since it was read is written anew.
+    my $umask   = defined $mode ? umask 077 : undef;
+    my $written = eval { $page->spew_raw($text); 1 };
+    umask $umask if defined $umask;
+    die $@ unless $written;
+
+    if (defined $mode) {
+        chmod $mode & 07777, "$page"
+            or croak 'Page '.$self->_page_name.' was written, but its mode could not be restored: '.$!;
+    }
+
     return 1;
 }
 

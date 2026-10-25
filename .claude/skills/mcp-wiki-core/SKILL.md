@@ -110,7 +110,8 @@ does not declare it.
   body and keep the heading. get followed by set writes the file back byte-identical.
 - Lines before the first heading belong to no section; no section tool reaches them.
 - `Document` reads a page's bytes once per operation and parses and cuts that one string;
-  `Document::write_text` is a document's only write. A page whose first line ends in CRLF
+  `Document::write_text` is a document's only write; it keeps the page's permission bits
+  and refuses a read-only page, leaving it as it is. A page whose first line ends in CRLF
   is worked on as LF text and written back as CRLF. A page that is not valid UTF-8 reads
   leniently (U+FFFD) but is never written: `read_for_update` refuses it.
 

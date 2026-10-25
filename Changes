@@ -90,6 +90,9 @@
   - Declare perl 5.020 as the minimum version, the floor MCP and
     JSON::Schema::Tiny already require, and keep the signatures feature from
     warning on perl 5.20 to 5.34.
+  - update_paragraph and restore_section keep the page's file permissions
+    instead of widening them (a 0600 page no longer becomes 0644), and refuse
+    a page the server may not write instead of replacing it.
 
 0.001  2026-04-28
   - Initial release
