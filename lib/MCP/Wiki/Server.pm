@@ -626,9 +626,13 @@ sub _fire_on_change {
         if ($git) {
             my $message = $self->_commit_message_for_event($event);
             my $reason = $event->{reason};
+            # A rename stages the old name's removal and the new one
+            my @paths = $event->{type} eq 'rename'
+                ? @{$event}{qw( from to )}
+                : $event->{page};
             eval {
                 $git->auto_commit(
-                    $event->{page},
+                    \@paths,
                     $message,
                     (defined $reason ? (reason => $reason) : ()),
                 );

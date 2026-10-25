@@ -50,7 +50,13 @@ sub data_of { return $_[0]{structuredContent} }
 
 # Commits reachable from HEAD, oldest first.
 sub commits {
-    my $head = eval { $repo->head } or return;
+    my $head = eval { $repo->head };
+    unless ($head) {
+        my $err = $@;
+        # an unborn branch has no commits; anything else is a real failure
+        return if ref $err eq 'Git::Raw::Error' && $err->code == Git::Raw::Error->EUNBORNBRANCH;
+        die $err;
+    }
     my $walker = Git::Raw::Walker->create($repo);
     $walker->sorting( ['time', 'reverse'] ) if $walker->can('sorting');
     $walker->push( $head->target );

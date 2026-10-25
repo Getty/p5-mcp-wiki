@@ -273,9 +273,13 @@ sub _get_parser {
 =method auto_commit
 
     $git->auto_commit('page.md', 'Fix typo in introduction', reason => 'User reported typo');
+    $git->auto_commit([ 'old.md', 'new/name.md' ], 'Renamed page');
 
-Stages the file, which must exist in the working tree, and commits the index
-on top of HEAD; on a branch without commits it makes the first one. Author and
+Stages the path, or each path in an array reference, as the working tree has
+it: a file that exists is added, one that is gone is removed from the index.
+A rename therefore stages both names, a delete the deleted one. Then it
+commits the index on top of HEAD; on a branch without commits it makes the
+first one. Author and
 committer are the repository's configured identity, or
 C<< MCP::Wiki <mcp-wiki@localhost> >> when none is set. Returns
 C<< { success => 1, hash => $id, message => $commit_message } >>, or
@@ -284,7 +288,7 @@ matches HEAD. Dies on any git error.
 
 =cut
 sub auto_commit {
-    my ($self, $file_path, $message, %opts) = @_;
+    my ($self, $paths, $message, %opts) = @_;
 
     my $reason = $opts{reason};
     my $final_message = $reason // $message;
@@ -293,8 +297,19 @@ sub auto_commit {
     my $index = $repo->index;
     $index->read;
 
-    # Stage the file and turn the index into the tree to commit
-    $index->add(encode('UTF-8', $file_path));
+    # Stage each path as the working tree has it, then turn the index into
+    # the tree to commit
+    my $root = Path::Tiny::path($self->wiki_root);
+    for my $path (ref $paths eq 'ARRAY' ? @$paths : $paths) {
+        die "auto_commit needs a path" unless defined $path && length $path;
+        my $file = $root->child($path);
+        if (-e $file || -l $file) {
+            $index->add(encode('UTF-8', $path));
+        }
+        else {
+            $index->remove(encode('UTF-8', $path));
+        }
+    }
     $index->write;
     my $tree = $index->write_tree;
 

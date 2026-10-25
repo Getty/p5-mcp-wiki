@@ -31,7 +31,9 @@ my $server = MCP::Wiki::Server->new(
 if ($use_git) {
     $server->on_change(sub {
         my $ev = shift;
-        warn "on_change fired: $ev->{type} on $ev->{page}";
+        # A rename event has no page, it names both sides
+        warn "on_change fired: $ev->{type} on "
+            .($ev->{page} // $ev->{from}.' -> '.$ev->{to});
     });
 }
 
