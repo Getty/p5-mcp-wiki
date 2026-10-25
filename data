@@ -1,0 +1,32 @@
+---
+claimed_at: 2026-10-25T01:03:38Z
+claimed_by: offen-2610
+class: standard
+completed: 2026-10-25T01:03:38Z
+created: 2026-08-23T14:25:51Z
+id: 7
+priority: medium
+started: 2026-10-25T00:55:44Z
+status: done
+tags:
+- docker
+- release
+title: Docker-Setup ist WIP und die Registry-Ziele widersprechen sich
+updated: 2026-10-25T01:03:38Z
+---
+
+Commit 9e571a6 bezeichnet das Setup selbst als "workaround, has to be removed again".
+
+- dist.ini: docker_image = localhost:5000/mcp-wiki, docker_local = 1 (nie pushen)
+- maint/release-after.pl: baut und pusht raudssus/mcp-wiki nach Docker Hub
+Beide koennen nicht gleichzeitig gelten.
+
+- Dockerfile hardcodet PERL5LIB auf die 5.40.3-site_perl-Pfade -- bricht bei jedem Perl-Bump
+- docker-entrypoint.sh re-exect ueber su - appuser -c "... $*": die Argumente werden in einer Shell neu gesplittet, ein Wiki-Pfad mit Leerzeichen bricht
+- bin/mcp-wiki hat #!/usr/local/bin/perl -- im Image richtig, fuer eine CPAN-Installation falsch; pruefen ob die Release-Kette den Shebang umschreibt
+
+Braucht eine Entscheidung, keinen inkrementellen Patch.
+
+2026-10-15 04:49 Empfehlung (nicht umgesetzt, braucht Entscheidung): (1) eine Registry festlegen -- release-after.pl pusht raudssus/mcp-wiki, dist.ini sagt localhost:5000 + docker_local=1; (2) Entrypoint: 'exec su - appuser -c ...' durch 'exec setpriv/gosu appuser /usr/local/bin/mcp-wiki "$@"' ersetzen (kein Re-Split der Argumente, PERL5LIB entfaellt); (3) PERL5LIB im Dockerfile aus 'perl -e print @INC' ableiten oder weglassen, wenn cpanm nach site_perl installiert; (4) Shebang '#!/usr/bin/env perl' ist fuer CPAN richtig (MakeMaker/ModuleBuild schreibt ohnehin um), Dockerfile braucht dann Symlink /usr/local/bin/perl. Docker-Build live nicht pruefbar offline.
+
+2026-10-25 01:02 Umgesetzt in 1bdc801. Entscheidungen: Registry = Docker Hub raudssus/mcp-wiki (README, Ursprungszustand vor 9e571a6), dist.ini docker_image ohne docker_local; maint/release-after.pl geloescht (zweiter Build/Push-Pfad, von dist.ini nicht mehr aufgerufen). Entrypoint: setpriv statt su, Argumente unsplit; Root-eigenes Volume geht an 1000:1000. PERL5LIB entfaellt (gleiche Perl-Basis in beiden Stages, site_perl im Default-@INC). Dockerfile: DZIL_DOCKER_API_SKIP=1 beim inneren dzil build. Shebang env perl; MakeMaker schreibt /usr/local/bin/perl-Shebang bei der Installation um (geprueft), env perl bleibt env, daher kein Symlink noetig. Nicht live pruefbar: docker build, setpriv als root. t/08-docker.t vorher rot.
