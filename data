@@ -1,0 +1,34 @@
+---
+claimed_at: 2026-10-25T07:33:17Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:33:17Z
+created: 2026-10-25T07:03:20Z
+id: 24
+priority: low
+started: 2026-10-25T07:33:17Z
+status: done
+tags:
+- git
+- bug
+title: restore_section drops the page's final newline and the blank line before the
+  next heading
+updated: 2026-10-25T07:33:17Z
+---
+
+Depends on: the Git::Raw API card.
+Evidence: History.pm:174-178 split without -1 limit. Restoring Intro#Alpha turned "v1 alpha\n\n## Beta...beta\n" into "v1 alpha\n## Beta...beta" (no blank line, no final newline).
+
+Fix: everything outside the restored section stays byte-identical, including the final newline.
+
+Tests: restore round trip in the opt-in real-Git::Raw file, or directly against History's splice logic if it can be exercised without a repository.
+
+From k30 (WB): restore_section also breaks CRLF pages — History splits the current page raw, so a restored CRLF page ends in a dangling \r, and an old section version with LF endings spliced into a CRLF page mixes endings. Scope extended (main agent's call): the restored page keeps its line ending (LF/CRLF as Document::_read_page/_write_page define it since k30).
+
+tests: t/48-git-history-restore.t, repo-less (History subclass with a fixed historic section, restore_section called directly). Asserts the splice keeps final newline, blank line(s) before next heading, trailing blank lines, no final newline stays none, longer/shorter sections, CRLF historic section -> no \r. Contract chosen by me: historic content is heading+body without trailing newline, the current section's trailing blank lines/line end are preserved. Red on HEAD: 10 of 14. Server-level CRLF case (stand-in, like t/37) is already green on HEAD - kept as guard, no dependency on card 14 observed.
+
+Decision (mine): restore keeps every line outside the section byte-identical (split -1/join) and also keeps the current section's trailing blank lines (the gap before the next heading); only heading + text before them are restored, historic trailing blank lines are dropped. A plain -1 split would still lose the blank line whenever the restored version was the last section of its old page (its blank lines then lie outside the section). CRLF: the historic page gets Document::_read_page's page-level rule in _page_text_at (first line CRLF -> all CRLF to LF), so get_section_content_at_commit/restore (and get_section_commits) see Document's LF text; current_content is LF text by contract (k14). t/48: 1-8 pass, 12-14 pass with WB's uncommitted k14 Server/Document; 9-11 FAIL by design question: they stub get_section_content_at_commit with CRLF section text, which the real method never returns (normalisation is page-level, before the cut; a section-level rule would diverge from Document on mixed-ending pages). Verified real path: CRLF page committed via git -> section content LF, restore result has no \r. Also: real get_section_content_at_commit returns a trailing \n when the old section ended in a blank line (t/48 assumes none) - restore gives the same result for both (scratch: 3 variants x 6 cases). Patch of exactly k24's History.pm hunks: /tmp/mcp-wiki-k24/k24-history.patch (git apply --cached), since k23 edits the same file next.
+
+Done in History.pm only: restore_section splits with -1 and keeps the current section's trailing blank lines; _page_text_at applies Document's CRLF->LF page rule; POD (restore, get_section_content_at_commit, DESCRIPTION) says LF text and the blank-line rule. Verified: t/48 1-8 + 12-14 green (12-14 on WB's uncommitted k14), 9-11 red pending coordinator decision (CRLF stub vs page-level normalisation, see note); t/37 t/38 t/41 t/05 t/07 green, t/42 green with Git::Raw 0.90 and skips without; scratch real-git CRLF restore clean. Stage with: git apply --cached /tmp/mcp-wiki-k24/k24-history.patch. Proposed subject: 'Keep the page around a restored section byte-identical, line endings included (k24)'.
+
+Committed as fdab92f
