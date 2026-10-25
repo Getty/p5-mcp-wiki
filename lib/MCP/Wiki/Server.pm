@@ -561,8 +561,11 @@ sub _setup_tools {
                 return $tool->text_result("Invalid page: $@", 1);
             }
 
+            # History patches the page's text with LF line endings; a page that
+            # is not valid UTF-8 is refused here, before anything is written
+            my $eol;
             my $result = eval {
-                my $current_content = $doc->content;
+                (my $current_content, $eol) = $doc->read_for_update;
                 $git->restore_section(
                     $args->{page},
                     $args->{heading_path},
@@ -575,9 +578,10 @@ sub _setup_tools {
             }
 
             # History already patched the section into the whole document, so
-            # that document replaces the page; the write still goes through
-            # _resolve_page, like every file access of a tool
-            eval { $self->_resolve_page($args->{page})->spew_utf8($result->{content}) };
+            # that document replaces the page, written back with the page's
+            # line ending through the document, whose file_path came from
+            # _resolve_page like every file access of a tool
+            eval { $doc->write_text($result->{content}, $eol) };
             if ($@) {
                 return $tool->text_result("Restore failed: $@", 1);
             }

@@ -4,6 +4,8 @@ package MCP::Wiki::Document;
 use strict;
 use warnings;
 use Moo;
+use Carp qw( croak );
+use Encode ();
 use Path::Tiny;
 use MCP::Wiki::TOC::Parser;
 
@@ -19,10 +21,10 @@ has file_path => (
 
 =attr wiki_root
 
-Required. Root directory of the wiki. The document does not read it and does
-no path validation of its own: it works on C<file_path> as given. Keeping
-that path inside the wiki is the caller's job; L<MCP::Wiki::Server> resolves
-every page name before it builds a document.
+Required. Root directory of the wiki. The document uses it only to name the
+page in error messages and does no path validation of its own: it works on
+C<file_path> as given. Keeping that path inside the wiki is the caller's job;
+L<MCP::Wiki::Server> resolves every page name before it builds a document.
 
 =cut
 has wiki_root => (
@@ -30,9 +32,19 @@ has wiki_root => (
     required => 1,
 );
 
+=method content
+
+    my $text = $doc->content;
+
+Returns the page decoded as UTF-8, as it is on disk. A page that is not valid
+UTF-8 can still be read: every malformed byte sequence comes back as U+FFFD.
+
+=cut
+
 sub content {
     my ($self) = @_;
-    return Path::Tiny::path($self->file_path)->slurp_utf8;
+    my ($text) = $self->_slurp;
+    return $text;
 }
 
 sub get_toc {
@@ -80,14 +92,15 @@ sub get_paragraph {
 Replaces the body of the section, leaving its heading line and every other
 section untouched. Takes what L</get_paragraph> returns as C<content>, so the
 two are inverse. On a CRLF page the whole page is written back with CRLF line
-endings, whichever line endings C<$new_body> uses. Dies when the heading does
-not exist.
+endings, whichever line endings C<$new_body> uses. Dies, leaving the file
+untouched, when the heading does not exist or the page is not valid UTF-8
+(see L</read_for_update>).
 
 =cut
 
 sub set_paragraph {
     my ($self, $heading_path, $new_content) = @_;
-    my ($text, $eol) = $self->_read_page;
+    my ($text, $eol) = $self->read_for_update;
 
     my $entry = $self->_find_entry($text, $heading_path);
     unless ($entry) {
@@ -105,31 +118,82 @@ sub set_paragraph {
     splice @new_lines, $entry->line_start, $entry->line_end - $entry->line_start,
         split /\n/, $new_content, -1;
 
-    $self->_write_page(join("\n", @new_lines), $eol);
+    $self->write_text(join("\n", @new_lines), $eol);
 
     return 1;
 }
 
-# One read of the page per operation: returns the text every section
-# operation works on and the line ending the page is written back with.
-# A page whose first line ends in CRLF is a CRLF page: its CRLFs become LF
-# here and LF again becomes CRLF in _write_page. Every other page (no newline
-# at all included) is used exactly as read and written with LF.
-sub _read_page {
+=method read_for_update
+
+    my ($text, $eol) = $doc->read_for_update;
+
+Reads the page once for a change: returns its text with LF line endings and
+the line ending to hand to L</write_text> (C<"\r\n"> for a CRLF page, else
+C<"\n">). Dies when the page is not valid UTF-8: its text has lost the bytes
+U+FFFD stands for, so writing it back would destroy them.
+
+=cut
+
+sub read_for_update {
     my ($self) = @_;
-    my $text = $self->content;
-    my $eol  = $text =~ /\A[^\n]*\r\n/ ? "\r\n" : "\n";
-    $text =~ s/\r\n/\n/g if $eol eq "\r\n";
+    my ($text, $eol, $utf8) = $self->_read_page;
+    croak 'Page '.$self->_page_name.' is not valid UTF-8: refusing to write it,'
+        .' which would replace its invalid bytes with U+FFFD'
+        unless $utf8;
     return ($text, $eol);
 }
 
-# Writes text produced by _read_page and the section operations back to the
-# page, restoring the line ending _read_page found.
-sub _write_page {
+=method write_text
+
+    $doc->write_text($text, $eol);
+
+Replaces the page with C<$text>, text with LF line endings as
+L</read_for_update> returns it, written as UTF-8 with every LF turned into
+C<$eol>. Every write of a document goes through here.
+
+=cut
+
+sub write_text {
     my ($self, $text, $eol) = @_;
     $text =~ s/\n/\r\n/g if $eol eq "\r\n";
-    Path::Tiny::path($self->file_path)->spew_utf8($text);
-    return;
+    utf8::encode($text);    # the exact inverse of the decode in _slurp
+    Path::Tiny::path($self->file_path)->spew_raw($text);
+    return 1;
+}
+
+# One read of the page per operation: returns the text every section
+# operation works on, the line ending the page is written back with, and
+# whether the page is valid UTF-8. A page whose first line ends in CRLF is a
+# CRLF page: its CRLFs become LF here and LF again becomes CRLF in write_text.
+# Every other page (no newline at all included) is used exactly as read and
+# written with LF.
+sub _read_page {
+    my ($self) = @_;
+    my ($text, $utf8) = $self->_slurp;
+    my $eol = $text =~ /\A[^\n]*\r\n/ ? "\r\n" : "\n";
+    $text =~ s/\r\n/\n/g if $eol eq "\r\n";
+    return ($text, $eol, $utf8);
+}
+
+# The one read of the page's bytes. Returns the decoded text and whether the
+# bytes are valid UTF-8 (well-formed, no surrogates, nothing above U+10FFFF;
+# noncharacters are valid). Valid text comes from utf8::decode, which
+# write_text inverts with utf8::encode, so an unchanged page is written back
+# byte for byte. Anything else is decoded leniently, every malformed sequence
+# becoming U+FFFD: readable, but never to be written back.
+sub _slurp {
+    my ($self) = @_;
+    my $bytes = Path::Tiny::path($self->file_path)->slurp_raw;
+    my $text  = $bytes;
+    return ($text, 1)
+        if utf8::decode($text) && $text !~ /[\x{D800}-\x{DFFF}]|[^\x{0}-\x{10FFFF}]/;
+    return (Encode::decode('UTF-8', $bytes, Encode::FB_DEFAULT | Encode::LEAVE_SRC), 0);
+}
+
+# The page as the wiki names it, for error messages
+sub _page_name {
+    my ($self) = @_;
+    return Path::Tiny::path($self->file_path)->relative($self->wiki_root)->stringify;
 }
 
 # The entry's line range is only valid for the text it was parsed from:

@@ -39,8 +39,8 @@ lib/MCP/Wiki/Git/History.pm   # Git::Raw: section commits, restore, auto_commit
 lib/MCP/Wiki/Git.pm           # deprecated subclass of Git::History, published API only
 ```
 
-`Document` trusts the `file_path` it gets and never reads its `wiki_root`; confinement
-is the Server's job. The Server never uses `MCP::Wiki::Git`.
+`Document` trusts the `file_path` it gets and uses its `wiki_root` only to name the page in
+error messages; confinement is the Server's job. The Server never uses `MCP::Wiki::Git`.
 
 ## Tools and events
 
@@ -109,6 +109,10 @@ does not declare it.
 - `get_paragraph` returns the body; `set_paragraph`/`update_paragraph` replace exactly the
   body and keep the heading. get followed by set writes the file back byte-identical.
 - Lines before the first heading belong to no section; no section tool reaches them.
+- `Document` reads a page's bytes once per operation and parses and cuts that one string;
+  `Document::write_text` is a document's only write. A page whose first line ends in CRLF
+  is worked on as LF text and written back as CRLF. A page that is not valid UTF-8 reads
+  leniently (U+FFFD) but is never written: `read_for_update` refuses it.
 
 **Parser**
 - Deliberately line-based, not CommonMark. A heading is a line starting at column 0 with
@@ -139,8 +143,10 @@ does not declare it.
 - Auto-commit hangs off `_fire_on_change`, not off the tools: a writing tool commits when it
   fires its event, and only then. It needs `use_git` and a `git_history`; `restore` events
   are excluded.
-- `restore_section`: History returns the complete restored document; the Server writes it
-  as is through `_resolve_page($page)->spew_utf8` and fires `restore`. Only History patches.
+- `restore_section`: the Server reads the page with `Document::read_for_update` (LF text and
+  the page's line ending; a page that is not valid UTF-8 is refused before History is
+  asked), hands History the LF text, writes the complete document History returns with
+  `Document::write_text` and fires `restore`. Only History patches.
 
 **Declared, not built**
 - `commit_reason_required` (`--commit-reason-required`) is accepted and never read.

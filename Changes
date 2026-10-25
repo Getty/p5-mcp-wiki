@@ -79,6 +79,9 @@
     including non-ASCII headings and text. Before, every commit failed and
     the history tools could not read the repository. JSON::MaybeXS is no
     longer a runtime requirement.
+  - update_paragraph and restore_section refuse pages that are not valid UTF-8
+    instead of replacing every non-UTF-8 byte with U+FFFD; the file is left
+    untouched, and reading such a page still works.
 
 0.001  2026-04-28
   - Initial release
