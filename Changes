@@ -121,6 +121,8 @@
     how they behave; every tool carries MCP annotations (read-only,
     destructive, idempotent hints); serverInfo reports the distribution's
     version instead of 1.0.0.
+  - create_page and rename_page no longer replace a page that appeared
+    between their existence check and the write.
 
 0.001  2026-04-28
   - Initial release

@@ -9,6 +9,7 @@ use MCP::Wiki::Document;
 use Path::Tiny;
 use Carp qw( croak );
 use Encode qw( decode encode );
+use Fcntl qw( O_WRONLY O_CREAT O_EXCL );
 use JSON::PP ();
 use MCP::Wiki;
 use feature 'signatures';
@@ -196,6 +197,44 @@ sub _list_pages {
     }
 
     return [sort @pages];
+}
+
+# The tools test for an existing page before they write, but a page can appear
+# between that test and the write. These two act so that it is never replaced:
+# they return 1 when done, 0 when the name exists by now, and die on any other
+# failure.
+
+# Writes a new page; O_EXCL makes the creation fail on an existing name.
+sub _create_exclusive {
+    my ($self, $path, $content) = @_;
+
+    sysopen my $fh, "$path", O_WRONLY | O_CREAT | O_EXCL
+        or return $!{EEXIST} ? 0 : die "Cannot create page: $!\n";
+    binmode $fh;
+    unless (print {$fh} encode('UTF-8', $content) and close $fh) {
+        my $err = $!;
+        unlink "$path";    # ours, and incomplete
+        die "Cannot write page: $err\n";
+    }
+    return 1;
+}
+
+# Moves a page; link fails on an existing name where rename would replace it.
+# A filesystem without hard links gets a plain rename after one more test.
+sub _move_no_clobber {
+    my ($self, $from, $to) = @_;
+
+    unless (link "$from", "$to") {
+        return 0 if $!{EEXIST} || -e $to || -l $to;
+        $from->move($to);
+        return 1;
+    }
+    unless (unlink "$from") {
+        my $err = $!;
+        unlink "$to";    # the second name we just made
+        die "Cannot remove the old name: $err\n";
+    }
+    return 1;
 }
 
 sub _create_document {
@@ -433,11 +472,12 @@ sub _setup_tools {
                 return $tool->text_result("Page already exists: $args->{page}", 1);
             }
 
-            eval {
+            my $created = eval {
                 $page_path->parent->mkpath;
-                $page_path->spew_utf8($args->{content} // "# $args->{page}\n");
-                1;
-            } or return $tool->text_result("Create failed: $@", 1);
+                $self->_create_exclusive($page_path, $args->{content} // "# $args->{page}\n");
+            };
+            return $tool->text_result("Create failed: $@", 1) unless defined $created;
+            return $tool->text_result("Page already exists: $args->{page}", 1) unless $created;
 
             $self->_fire_on_change({
                 type   => 'create',
@@ -540,11 +580,12 @@ sub _setup_tools {
                 return $tool->text_result("Target already exists: $args->{to}", 1);
             }
 
-            eval {
+            my $moved = eval {
                 $to_path->parent->mkpath;
-                $from_path->move($to_path);
-                1;
-            } or return $tool->text_result("Rename failed: $@", 1);
+                $self->_move_no_clobber($from_path, $to_path);
+            };
+            return $tool->text_result("Rename failed: $@", 1) unless defined $moved;
+            return $tool->text_result("Target already exists: $args->{to}", 1) unless $moved;
 
             $self->_fire_on_change({
                 type   => 'rename',

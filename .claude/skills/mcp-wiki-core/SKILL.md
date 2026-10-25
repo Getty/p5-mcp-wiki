@@ -102,6 +102,11 @@ in-root symlink → its target); auto-commit stages those names.
   the wiki root is cut from paths (bytes, decoded there) so names stay root-relative. Put
   `$@` in a message freely; never build an absolute path into one yourself. An unknown
   `heading_path` gets `_heading_hint`: the page's paths, at most 50, then `... and N more`.
+- The `-e` test before a create or rename is only for the message: a page can appear right
+  after it. `_create_exclusive` (`O_EXCL`) and `_move_no_clobber` (`link` + `unlink`; a
+  plain move after one more test where there are no hard links) never replace one. t/47
+  opens that window by wrapping `Path::Tiny::mkpath`, so the target's `->parent->mkpath`
+  stays between test and act.
 
 **Addressing**
 - `heading_path` is built in `TOC::Parser::_build_heading_path` as an ancestor stack:
