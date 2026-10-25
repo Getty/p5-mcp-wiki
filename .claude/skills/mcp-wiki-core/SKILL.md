@@ -69,7 +69,8 @@ in-root symlink → its target); auto-commit stages those names.
   symlinks, `..`), appends the not-yet-existing rest as plain names and checks
   `$root->subsumes($path)` at every step — a path boundary, so `/wiki-evil` is not under
   `/wiki`. It refuses any `.git` component (any case, in the name and in the resolved
-  path), the root itself, and any resolved basename not ending in `.md` (any case). A tool
+  path), the root itself, any resolved basename not ending in `.md` (any case), and a
+  resolved path that exists but is no plain file (a `dir.md` directory, a FIFO). A tool
   that builds a path itself reopens the hole.
 - Names are characters, the filesystem is bytes: `_resolve_page` walks the UTF-8 encoding
   of the name and returns a byte path, like the root and everything `realpath` and

@@ -86,7 +86,7 @@ Page names are resolved (symlinks, `..`) before use. Every tool refuses a name
 that
 
 - leads outside the root,
-- is not a `.md` file, or
+- is not a `.md` file (a directory or FIFO named `x.md` is none either), or
 - lies below a `.git` directory (any case, any depth, also through a symlink).
 
 `list_pages` returns exactly the pages the other tools accept.

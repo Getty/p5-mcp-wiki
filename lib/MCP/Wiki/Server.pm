@@ -102,11 +102,13 @@ sub _is_git_dir_name {
 # on whole path components, so "/wiki-evil" is not below "/wiki" and nothing
 # outside the root is probed beyond the step that leaves it.
 #
-# Two things inside the root are no pages either. Nothing below a ".git"
+# Three things inside the root are no pages either. Nothing below a ".git"
 # directory: a write to its config or hooks is code execution at the next git
-# command. And nothing but ".md" files, which keeps every other file in the
-# directory out of reach. ".git" is looked for in the name and in the resolved
-# path, the extension in the resolved path: that is the file a call acts on.
+# command. Nothing but ".md" files, which keeps every other file in the
+# directory out of reach. And nothing that exists but is no plain file: a
+# directory named "x.md" would be moved or removed whole, a FIFO would block
+# the read. ".git" is looked for in the name and in the resolved path, the
+# rest in the resolved path: that is what a call acts on.
 #
 # The name is a character string; on disk it is its UTF-8 encoding. The walk
 # and the returned path are bytes, like the root and every name realpath gives
@@ -139,6 +141,8 @@ sub _resolve_page {
     croak "Path outside wiki root: $page" if $path eq $root;
 
     croak "Not a markdown page: $page" unless $path->basename =~ /\.md\z/i;
+    croak 'Not a wiki page ('.(-d $path ? 'a directory' : 'not a plain file')."): $page"
+        if -e $path && !-f $path;
 
     return $path;
 }
@@ -749,7 +753,7 @@ through a directory that merely shares the root's name as a prefix, such as
 C</srv/wiki-old> next to C</srv/wiki>. A symlink that stays inside the root
 works like the page it points to.
 
-Two things inside the root are not pages and are refused by every tool:
+Three things inside the root are not pages and are refused by every tool:
 
 =over 4
 
@@ -763,6 +767,12 @@ with a C<.md> name.
 Anything below a directory named C<.git>, in any spelling of upper and lower
 case, at any depth, and also when reached through a symlink. The repository of
 a wiki with git history is therefore out of reach of the tools.
+
+=item *
+
+Anything that exists under a page name but is no plain file: a directory
+called C<notes.md>, a FIFO, a device. A directory with such a name can still
+hold pages.
 
 =back
 

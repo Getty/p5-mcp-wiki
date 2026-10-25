@@ -111,6 +111,8 @@
     that are not valid UTF-8 are skipped with a warning.
   - list_pages skips a directory it cannot read (such as a root-only
     lost+found) with a warning instead of failing.
+  - A directory, FIFO or device named like a page is refused by every tool;
+    rename_page no longer moves such a directory.
 
 0.001  2026-04-28
   - Initial release
