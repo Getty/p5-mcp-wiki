@@ -1,0 +1,27 @@
+---
+claimed_at: 2026-10-25T08:36:12Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T08:36:12Z
+created: 2026-10-25T07:03:28Z
+id: 32
+priority: low
+started: 2026-10-25T08:36:12Z
+status: done
+tags:
+- docs
+title: 'POD gaps: undocumented public methods'
+updated: 2026-10-25T08:36:12Z
+---
+
+Evidence: Server's on_change, to_stdio, server and git_history, Parser's parse_content/parse_file and Entry's as_hash have no POD; there is no tool list in the Server POD.
+
+Fix: document them (getty-perl-pod conventions, =attr/=method). POD only. bin/mcp-wiki's missing $VERSION belongs to the version proposal card.
+
+Parser/Entry part done (POD only, uncommitted): lib/MCP/Wiki/TOC/Parser.pm gets =method parse_file and =method parse_content (section line range, 1-based lines valid for one parse, heading_path pop/push rule with example, duplicates kept); lib/MCP/Wiki/TOC/Entry.pm gets =method as_hash (8 keys = attributes, wire form of a get_toc entry; content_preview/char_count cover the section incl. heading line, LF-joined, no final newline; char_count in characters; preview = first 100 chars + '...' when longer). Each fact checked by scratch script first. Verified: perl -Ilib -c both OK; prove -l t/00 t/06 t/07 t/10 PASS; DZIL_DOCKER_API_SKIP=1 dzil build OK; podchecker on woven Parser.pm/Entry.pm 'pod syntax OK'; Pod::Coverage 1 for both packages (0 with the new POD stripped, so the check bites). git diff of both files is POD lines only. prove -lr t/: red only in the untracked Server-side red-first specs (t/39, t/43-47, t/52; t/53 flips between runs while Server.pm is in flight), Git::Raw tests skip. Server.pm part (on_change, to_stdio, server, git_history, tool list) waits for WA's Server.pm chain; card stays in-progress.
+
+Server.pm part done (POD only, additions only): =attr server (MCP::Server named MCP-Wiki with the dist version, lazy, one passed to new gets the tools), =attr git_history (built when use_git + Git::Raw loads, else undef -> history tools 'not available', nothing committed; injectable, only get_section_commits/restore_section/auto_commit called, with the root-relative page name), =method to_stdio (one JSON-RPC request per line, answered in turn, returns at EOF — checked in MCP::Server::Transport::Stdio), on_change already in k22, new =head1 TOOLS (nine tools with arguments, heading_path rule, line numbers one-read-only, on_change/auto-commit sentence; facts checked against the k16..k56 code). Verified: DZIL_DOCKER_API_SKIP=1 dzil build --in /tmp/mcp-wiki-k32/build OK; podchecker on woven Server.pm 'pod syntax OK'; Pod::Coverage naked only BUILD (Moo hook, naked before too); full tree prove -lr t/ PASS; chain HEAD+k16..k56+k32 PASS.
+
+Both parts ready for commit after k56. Server part: /tmp/mcp-wiki-k32/k32-server-on-k56.patch (lib/MCP/Wiki/Server.pm, POD only). Parser/Entry part (WB, uncommitted in the tree, POD only): git diff HEAD -- lib/MCP/Wiki/TOC/Parser.pm lib/MCP/Wiki/TOC/Entry.pm — check that diff holds only card 32's POD (card 18's parser change was WB's too). No test file.
+
+Committed as bd6ebbc
