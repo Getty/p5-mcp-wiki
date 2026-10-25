@@ -81,10 +81,11 @@ does not declare it.
   server is the closed-over `$self`. Answer with `$tool->structured_result({...})`, failures
   with `$tool->text_result($msg, 1)`.
 - Wrap every call that can die (`_resolve_page`, `_create_document`, file I/O, History) in
-  `eval` and answer the failure as a tool result. `MCP::Server::handle` catches an escaping
-  die and answers JSON-RPC -32603 `Internal error`: the session survives, but the model gets
-  an opaque error instead of a readable `isError` result, and the message only reaches the
-  server log.
+  `eval` and answer the failure as a tool result whose prefix says what failed
+  (`Cannot read page: …`, `Delete failed: …`). `_add_tool` answers whatever still escapes as
+  `<tool> failed: …` — a safety net, not a substitute for the eval. Without it
+  `MCP::Server::handle` would answer JSON-RPC -32603 `Internal error`: the session survives,
+  but the model gets an opaque error and the message only reaches the server log.
 
 **Addressing**
 - `heading_path` is built in `TOC::Parser::_build_heading_path` as an ancestor stack:

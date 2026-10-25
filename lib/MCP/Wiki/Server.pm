@@ -179,10 +179,16 @@ sub _create_document {
 # Registers a tool. The wiki root is fixed when the server starts; a call that
 # still carries a root_dir is refused instead of being carried out against the
 # configured root, where the same page name may stand for a different file.
+#
+# A handler answers its own failures with an error result that says what went
+# wrong. Should a die still escape one, it is answered here as well: MCP::Server
+# would turn it into an opaque JSON-RPC "Internal error" and the model would
+# learn nothing.
 sub _add_tool {
     my ($self, %spec) = @_;
 
     my $code = delete $spec{code};
+    my $name = $spec{name};
 
     return $self->server->tool(
         %spec,
@@ -191,7 +197,11 @@ sub _add_tool {
                 'root_dir is not supported: the wiki root is fixed when the server starts', 1
             ) if ref $args eq 'HASH' && exists $args->{root_dir};
 
-            return $code->($tool, $args);
+            my $result;
+            eval { $result = $code->($tool, $args); 1 }
+                or return $tool->text_result("$name failed: $@", 1);
+
+            return $result;
         },
     );
 }
@@ -238,7 +248,11 @@ sub _setup_tools {
                 return $tool->text_result("Invalid page: $@", 1);
             }
 
-            my @toc = $doc->get_toc;
+            my @toc = eval { $doc->get_toc };
+            if ($@) {
+                return $tool->text_result("Cannot read page: $@", 1);
+            }
+
             return $tool->structured_result({
                 page => $args->{page},
                 entries => [map { $_->as_hash } @toc],
@@ -270,7 +284,11 @@ sub _setup_tools {
                 return $tool->text_result("Invalid page: $@", 1);
             }
 
-            my $para = $doc->get_paragraph($args->{heading_path});
+            my $para = eval { $doc->get_paragraph($args->{heading_path}) };
+            if ($@) {
+                return $tool->text_result("Cannot read page: $@", 1);
+            }
+
             unless ($para) {
                 return $tool->text_result("Heading not found: $args->{heading_path}", 1);
             }
@@ -450,7 +468,8 @@ sub _setup_tools {
                 return $tool->text_result("Page not found: $args->{page}", 1);
             }
 
-            $page_path->remove;
+            eval { $page_path->remove; 1 }
+                or return $tool->text_result("Delete failed: $@", 1);
 
             $self->_fire_on_change({
                 type => 'delete',
@@ -491,7 +510,11 @@ sub _setup_tools {
             eval { $self->_resolve_page($args->{page}); 1 }
                 or return $tool->text_result("Invalid page: $@", 1);
 
-            my @commits = $git->get_section_commits($args->{page}, $args->{heading_path});
+            my @commits = eval { $git->get_section_commits($args->{page}, $args->{heading_path}) };
+            if ($@) {
+                return $tool->text_result("Cannot read section history: $@", 1);
+            }
+
             return $tool->structured_result({
                 page         => $args->{page},
                 heading_path => $args->{heading_path},
@@ -538,13 +561,18 @@ sub _setup_tools {
                 return $tool->text_result("Invalid page: $@", 1);
             }
 
-            my $current_content = $doc->content;
-            my $result = $git->restore_section(
-                $args->{page},
-                $args->{heading_path},
-                $args->{commit_hash},
-                { current_content => $current_content }
-            );
+            my $result = eval {
+                my $current_content = $doc->content;
+                $git->restore_section(
+                    $args->{page},
+                    $args->{heading_path},
+                    $args->{commit_hash},
+                    { current_content => $current_content }
+                );
+            };
+            if ($@) {
+                return $tool->text_result("Restore failed: $@", 1);
+            }
 
             if ($result->{conflict}) {
                 return $tool->structured_result($result);
@@ -592,7 +620,8 @@ sub _fire_on_change {
 
     # Auto-commit via git if enabled
     if ($self->use_git && $event->{type} ne 'restore') {
-        my $git = $self->git_history;
+        my $git = eval { $self->git_history };
+        warn "Git auto-commit error: $@" if $@;
         if ($git) {
             my $message = $self->_commit_message_for_event($event);
             my $reason = $event->{reason};

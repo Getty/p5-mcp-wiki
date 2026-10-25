@@ -58,6 +58,10 @@
   - get_toc and the section tools no longer slow down quadratically with the
     number of headings (8000 headings: about 42 s down to under 1 s); heading
     paths and line ranges are unchanged
+  - A tool call that fails reading or deleting a page, or in the git history,
+    now answers with an error naming the problem instead of an opaque
+    "Internal error" (e.g. an unreadable page, a directory named like a
+    page, a failing history lookup or restore)
 
 0.001  2026-04-28
   - Initial release
