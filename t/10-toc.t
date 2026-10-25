@@ -97,4 +97,64 @@ subtest 'heading_path survives skipped levels' => sub {
     is_deeply(\@paths, ['A', 'A#C', 'A#B'], 'a skipped level does not leak');
 };
 
+# Pins the exact addresses and ranges of a varied document, so that rebuilding
+# the heading_path construction (e.g. for speed) cannot change them unnoticed.
+# heading_path is a stored address; line ranges are 1-based and inclusive.
+subtest 'heading_path, level and line range are pinned for a varied document' => sub {
+    my $md = <<'MARKDOWN';
+preamble before any heading
+# Alpha
+text
+### Skipped
+## Back
+#### Deep
+##### Deeper
+###### Deepest
+## Dup
+### Child
+## Dup
+```
+# in fence
+## also fenced
+```
+    # indented, not a heading
+# C#
+## Trail ##
+### Tight###
+# Alpha
+## Dup
+### Child
+#### Deep
+## Child
+# After fence
+MARKDOWN
+
+    # [ heading_path, level, line_start, line_end ]
+    my @expected = (
+        [ 'Alpha',                          1,  2,  3 ],
+        [ 'Alpha#Skipped',                  3,  4,  4 ],
+        [ 'Alpha#Back',                     2,  5,  5 ],
+        [ 'Alpha#Back#Deep',                4,  6,  6 ],
+        [ 'Alpha#Back#Deep#Deeper',         5,  7,  7 ],
+        [ 'Alpha#Back#Deep#Deeper#Deepest', 6,  8,  8 ],
+        [ 'Alpha#Dup',                      2,  9,  9 ],
+        [ 'Alpha#Dup#Child',                3, 10, 10 ],
+        [ 'Alpha#Dup',                      2, 11, 16 ],
+        [ 'C',                              1, 17, 17 ],
+        [ 'C#Trail',                        2, 18, 18 ],
+        [ 'C#Trail#Tight',                  3, 19, 19 ],
+        [ 'Alpha',                          1, 20, 20 ],
+        [ 'Alpha#Dup',                      2, 21, 21 ],
+        [ 'Alpha#Dup#Child',                3, 22, 22 ],
+        [ 'Alpha#Dup#Child#Deep',           4, 23, 23 ],
+        [ 'Alpha#Child',                    2, 24, 24 ],
+        [ 'After fence',                    1, 25, 25 ],
+    );
+
+    my @entries = MCP::Wiki::TOC::Parser->parse_content($md);
+    my @got = map { [ $_->heading_path, $_->level, $_->line_start, $_->line_end ] } @entries;
+
+    is_deeply(\@got, \@expected, 'every entry: heading_path, level, line_start, line_end');
+};
+
 done_testing;

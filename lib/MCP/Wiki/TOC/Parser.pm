@@ -59,6 +59,7 @@ sub parse_content {
 
     # Convert to TOC entries with line ranges
     my @entries;
+    my @stack;    # [level, heading] of the open ancestors, carried across headings
     for my $i (0 .. $#headings) {
         my ($line_start, $level, $heading) = @{$headings[$i]};
 
@@ -71,7 +72,7 @@ sub parse_content {
         }
 
         # Build heading_path (chain of ancestor headings)
-        my $heading_path = $class->_build_heading_path(\@headings, $i);
+        my $heading_path = $class->_build_heading_path(\@stack, $level, $heading);
 
         # Content preview
         my ($preview, $char_count) = $class->_extract_section(\@lines, $line_start, $line_end);
@@ -95,18 +96,15 @@ sub parse_content {
 }
 
 sub _build_heading_path {
-    my ($class, $headings, $index) = @_;
-    my @stack;    # [level, heading] of the open ancestors
+    my ($class, $stack, $level, $heading) = @_;
 
-    for my $i (0 .. $index) {
-        my ($level, $heading) = @{$headings->[$i]}[1, 2];
+    # Entering a level closes every open heading of the same or a deeper level.
+    # $stack holds the ancestors left by the previous heading, so each heading
+    # costs one push and at most as many pops as were pushed before.
+    pop @$stack while @$stack && $stack->[-1][0] >= $level;
+    push @$stack, [$level, $heading];
 
-        # Entering a level closes every open heading of the same or a deeper level
-        pop @stack while @stack && $stack[-1][0] >= $level;
-        push @stack, [$level, $heading];
-    }
-
-    return join('#', map { $_->[1] } @stack);
+    return join('#', map { $_->[1] } @$stack);
 }
 
 sub _make_anchor {
