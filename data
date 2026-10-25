@@ -1,0 +1,30 @@
+---
+claimed_at: 2026-10-25T07:58:36Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:58:36Z
+created: 2026-10-25T07:03:18Z
+id: 22
+priority: medium
+started: 2026-10-25T07:58:36Z
+status: done
+tags:
+- bug
+- events
+title: on_change events carry the raw client page name and share one mutable hash
+updated: 2026-10-25T07:58:36Z
+---
+
+Evidence: an event's `page` is the raw argument: "x/../sub/./new.md" arrives as is; an update through the in-root symlink alias.md reports "alias.md" although page.md changed. Auto-commit stages that raw string (libgit2 gets "./" and ".." paths). All handlers receive the same hashref, so one handler's mutation is visible to the next. bin/mcp-wiki:31-36 installs a debug handler that warns on every change in --git mode.
+
+Fix: `page`, `from`, `to` in events are the canonical path relative to wiki_root (the form list_pages shows); each handler gets its own shallow copy; drop the debug handler from bin/mcp-wiki.
+
+Tests: events from create/update/rename/delete with non-canonical names carry canonical names; a mutation by the first handler is not seen by the second.
+
+tests: t/39-server-events.t. Red on HEAD (8 of 20): create x2, update via alias, update via ./sub/../ , rename, delete report the raw name; second handler sees first's mutation and gets the same hashref. Tool-success and on-disk checks are green.
+
+Server: new _page_name($path) = resolved path relative to the realpath'd root; create/update/rename/delete/restore events carry it for page/from/to (update/restore via $doc->file_path). Auto-commit therefore stages canonical names (scratch with Git::Raw: x/../sub/./b.md commits sub/b.md, alias.md update commits sub/b.md, status clean). Each handler gets { %$event }. on_change POD (=method). bin/mcp-wiki debug handler dropped. Skill: event-name rule + shallow copy. Verified: t/39 20/20 (no skips); t/30 t/34-38 t/06 t/07 green; Git::Raw t/42 t/49 t/50 t/51 green; plain suite: red only in untracked t/43-47 t/52 (unchanged). Chain HEAD+k21+k25+k22 green on a HEAD export. DRIFT (not fixed): get_section_history/restore_section pass the raw $args->{page} to History, so './sub/a.md' or 'sub/../sub/a.md' finds 0 commits where 'sub/a.md' finds 2 (confirmed in scratch); an alias name looks up the alias's own path in history. Same root cause; would need History to get _page_name too. Also: canonical names for pages below an existing non-ASCII directory are only right once card 16 fixes _resolve_page (Cwd::realpath returns bytes).
+
+Ready for commit after k21 and k25. Patch on top of k25: /tmp/mcp-wiki-k22/k22-on-k25.patch (lib/MCP/Wiki/Server.pm, bin/mcp-wiki, .claude/skills/mcp-wiki-core/SKILL.md). Test: t/39-server-events.t. Open: history tools still use the raw page name (drift note).
+
+Committed as 4537e5c
