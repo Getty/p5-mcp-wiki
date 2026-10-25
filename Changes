@@ -1,4 +1,10 @@
 {{$NEXT}}
+  - Breaking: heading_path is now the chain of a section's ancestors only.
+    Siblings no longer leak into it: "# Intro", "## Alpha", "## Beta" yield
+    Intro#Beta (was Intro#Alpha#Beta), and a following "# Other" yields
+    Other (was Intro#Other). A section's address no longer changes when a
+    sibling section is inserted before it. Addresses stored from earlier
+    versions for any section after a sibling must be fetched anew via get_toc.
   - MCP::Wiki::Git stays as a deprecated thin wrapper around
     MCP::Wiki::Git::History
   - Removed unused internals: Document update_content_hash, Git::History

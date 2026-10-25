@@ -81,4 +81,20 @@ subtest 'as_hash returns correct structure' => sub {
     ok(exists $hash->{char_count}, 'has char_count');
 };
 
+subtest 'heading_path is the chain of ancestors, not of siblings' => sub {
+    my $md = join "\n",
+        '# Intro', '## Alpha', '## Beta', '### Deep', '## Gamma', '# Other', '## Alpha', '';
+    my @paths = map { $_->heading_path } MCP::Wiki::TOC::Parser->parse_content($md);
+    is_deeply(\@paths, [
+        'Intro', 'Intro#Alpha', 'Intro#Beta', 'Intro#Beta#Deep',
+        'Intro#Gamma', 'Other', 'Other#Alpha',
+    ], 'siblings are dropped when a level is re-entered');
+};
+
+subtest 'heading_path survives skipped levels' => sub {
+    my @paths = map { $_->heading_path }
+        MCP::Wiki::TOC::Parser->parse_content("# A\n### C\n## B\n");
+    is_deeply(\@paths, ['A', 'A#C', 'A#B'], 'a skipped level does not leak');
+};
+
 done_testing;

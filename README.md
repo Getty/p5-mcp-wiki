@@ -37,8 +37,10 @@ $server->to_stdio;
 ## MCP Tools
 
 Every tool takes `page` (or `from`/`to`) as a path relative to `wiki_root`. A
-section is addressed by `heading_path`, the `#`-joined heading chain such as
-`Introduction#Background` -- not by `heading`, and never by line number.
+section is addressed by `heading_path`, the `#`-joined chain of its ancestor
+headings such as `Introduction#Background` -- not by `heading`, and never by
+line number. Siblings are not part of the chain: with `# Intro`, `## Alpha`,
+`## Beta` the second section is `Intro#Beta`.
 
 | Tool | Required | Optional | Description |
 |------|----------|----------|-------------|
@@ -58,11 +60,6 @@ section is addressed by `heading_path`, the `#`-joined heading chain such as
 
 These behave as described today; they are tracked, not fixed:
 
-- `heading_path` is not a pure ancestor chain: it collects every preceding
-  heading of the same or a higher level, siblings included. With
-  `# Intro`, `## Alpha`, `## Beta`, the second section is `Intro#Alpha#Beta`,
-  not `Intro#Beta`. Take paths from `get_toc`, and expect them to shift when
-  a sibling section is inserted (k1).
 - `get_paragraph` returns the section including its heading line, while
   `update_paragraph` replaces from the line after the heading but with the
   length including it. Writing back what `get_paragraph` returned duplicates

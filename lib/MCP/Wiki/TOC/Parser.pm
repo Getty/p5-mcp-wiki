@@ -66,7 +66,7 @@ sub parse_content {
             $line_end = scalar(@lines);
         }
 
-        # Build heading_path (ancestor headings)
+        # Build heading_path (chain of ancestor headings)
         my $heading_path = $class->_build_heading_path(\@headings, $i);
 
         # Content preview
@@ -92,20 +92,17 @@ sub parse_content {
 
 sub _build_heading_path {
     my ($class, $headings, $index) = @_;
-    my @path;
+    my @stack;    # [level, heading] of the open ancestors
 
     for my $i (0 .. $index) {
-        my $level = $headings->[$i][1];
-        my $heading = $headings->[$i][2];
+        my ($level, $heading) = @{$headings->[$i]}[1, 2];
 
-        # Only include parent headings (same or higher level)
-        # Level 1 is highest (outermost)
-        if ($level <= $headings->[$index][1]) {
-            push @path, $heading;
-        }
+        # Entering a level closes every open heading of the same or a deeper level
+        pop @stack while @stack && $stack[-1][0] >= $level;
+        push @stack, [$level, $heading];
     }
 
-    return join('#', @path);
+    return join('#', map { $_->[1] } @stack);
 }
 
 sub _make_anchor {
