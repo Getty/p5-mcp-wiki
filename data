@@ -1,0 +1,31 @@
+---
+claimed_at: 2026-10-25T07:13:35Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:13:35Z
+created: 2026-10-25T07:03:13Z
+id: 17
+priority: high
+started: 2026-10-25T07:13:35Z
+status: done
+tags:
+- packaging
+- tests
+title: namespace::clean is used at runtime but undeclared; t/05 cannot see lowercase
+  modules
+updated: 2026-10-25T07:13:35Z
+---
+
+Evidence: lib/MCP/Wiki/Git.pm:5 `use namespace::clean;` is not in cpanfile or the META runtime requires; Moo lists it only as a develop prereq. On a clean install t/00-load (MCP::Wiki::Git) and t/41 fail. The regex at t/05-cpanfile.t:31 only matches names starting with an uppercase letter.
+
+Fix: declare `namespace::clean` in cpanfile (keep the code as is); widen the t/05 regex to lowercase namespaces while excluding pragmas (strict, warnings, feature, utf8, lib, parent, constant, version numbers ...).
+
+Tests: t/05 must fail when the declaration is missing (prove that red once against a copy) and pass with it.
+
+t/05 widened: module regex now matches lowercase names; %PRAGMA list + v5.x excluded. Red now (namespace::clean undeclared, test 7); with 'requires namespace::clean' added in a /tmp copy: 15 tests PASS (extra reverse-direction check). parent/base/extends class names are not checked by t/05 (it only reads use/require) - unchanged.
+
+Also found (out of scope): bin/mcp-wiki and every module except lib/MCP/Wiki.pm lack their own 'our $VERSION' (getty-perl-core: every module and bin/ executable carries one); the build only injects it via RewriteVersion::Transitional. Also cpanfile's runtime requires are not alphabetical (JSON::MaybeXS last) - left as is.
+
+Done. cpanfile: added "requires 'namespace::clean';     # MCP::Wiki::Git" after Moo in the runtime block (code unchanged). Verified: t/05-cpanfile.t was red on test 7 (namespace::clean is declared) before the change, now 15/15 green (incl. reverse check 13: requires namespace::clean is loaded by lib/ or bin/). DZIL_DOCKER_API_SKIP=1 dzil build --in a /tmp dir: META.json runtime requires now JSON::MaybeXS, MCP, Mojolicious, Moo, Path::Tiny, namespace::clean; recommends Git::Raw. Build dir removed.
+
+Committed as 0d5927c
