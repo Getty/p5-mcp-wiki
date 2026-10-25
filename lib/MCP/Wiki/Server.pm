@@ -9,6 +9,7 @@ use MCP::Wiki::Document;
 use Path::Tiny;
 use Carp qw( croak );
 use feature 'signatures';
+no warnings 'experimental::signatures';
 
 =attr wiki_root
 

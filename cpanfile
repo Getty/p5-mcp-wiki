@@ -1,3 +1,4 @@
+requires 'perl', '5.020';
 requires 'MCP';
 requires 'Mojolicious';          # Required by MCP::Server
 requires 'Moo';

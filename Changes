@@ -87,6 +87,9 @@
     line endings no longer gets stray carriage returns.
   - get_section_history lists only the commits that created or changed the
     section; commits touching other pages or other sections are left out.
+  - Declare perl 5.020 as the minimum version, the floor MCP and
+    JSON::Schema::Tiny already require, and keep the signatures feature from
+    warning on perl 5.20 to 5.34.
 
 0.001  2026-04-28
   - Initial release
