@@ -1,6 +1,7 @@
 requires 'MCP';
 requires 'Mojolicious';          # Required by MCP::Server
 requires 'Moo';
+requires 'namespace::clean';     # MCP::Wiki::Git
 requires 'Path::Tiny';
 requires 'JSON::MaybeXS';
 

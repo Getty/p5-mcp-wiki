@@ -12,6 +12,13 @@ my %FALLBACK_CORE = map { $_ => 1 } qw(
   strict warnings Carp Getopt::Long Pod::Usage Digest::SHA File::Spec
 );
 
+# pragmas and the like: they name no distribution to declare
+my %PRAGMA = map { $_ => 1 } qw(
+  strict warnings feature utf8 lib parent base constant vars overload integer
+  bytes open if less sort subs locale mro re fields diagnostics bigint bignum
+  bigrat bigfloat charnames encoding filetest sigtrap vmsish threads
+);
+
 my $have_corelist = eval { require Module::CoreList; 1 };
 sub is_core {
   my ($mod) = @_;
@@ -28,8 +35,11 @@ for my $file ( File::Find::Rule->file->name( '*.pm', 'mcp-wiki' )->in( 'lib', 'b
     if ( $line =~ /^=[a-zA-Z]/ )    { $in_pod = 1; next }
     next if $in_pod;
     $line =~ s/#.*//;
-    while ( $line =~ /\b(?:use|require)\s+([A-Z][A-Za-z0-9_]*(?:::[A-Za-z0-9_]+)*)/g ) {
-      $used{$1} = 1;
+    while ( $line =~ /\b(?:use|require)\s+([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z0-9_]+)*)/g ) {
+      my $mod = $1;
+      next if $PRAGMA{$mod};
+      next if $mod =~ /^v\d/;    # use v5.36
+      $used{$mod} = 1;
     }
   }
 }

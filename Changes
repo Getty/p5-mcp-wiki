@@ -62,6 +62,8 @@
     now answers with an error naming the problem instead of an opaque
     "Internal error" (e.g. an unreadable page, a directory named like a
     page, a failing history lookup or restore)
+  - namespace::clean is declared as a runtime requirement: MCP::Wiki::Git
+    loads it, so a clean install failed t/00-load and t/41
 
 0.001  2026-04-28
   - Initial release
