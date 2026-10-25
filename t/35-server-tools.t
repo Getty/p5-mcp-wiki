@@ -83,7 +83,7 @@ subtest 'update_paragraph' => sub {
     my $server = MCP::Wiki::Server->new(wiki_root => "$wiki_dir");
 
     my $result = call_tool($server, 'update_paragraph',
-        { page => 'test.md', heading_path => 'Test', content => "# Test\n\nUpdated content here." }
+        { page => 'test.md', heading_path => 'Test', content => "Updated content here." }
     );
 
     my $text = $result->{content}->[0]->{text};
@@ -92,6 +92,14 @@ subtest 'update_paragraph' => sub {
     # Verify content changed
     my $content = Path::Tiny::path("$wiki_dir/test.md")->slurp_utf8;
     like($content, qr/Updated content/, 'file content was updated');
+    is(() = $content =~ /^# Test$/mg, 1, 'the heading is kept once, not duplicated');
+
+    # What get_paragraph returns can be written back unchanged
+    my $before = $content;
+    my $got = data_of(call_tool($server, 'get_paragraph', { page => 'test.md', heading_path => 'Test' }));
+    call_tool($server, 'update_paragraph',
+        { page => 'test.md', heading_path => 'Test', content => $got->{content} });
+    is(Path::Tiny::path("$wiki_dir/test.md")->slurp_utf8, $before, 'get -> update leaves the page as it was');
 };
 
 subtest 'rename_page' => sub {

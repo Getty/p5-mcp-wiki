@@ -1,4 +1,10 @@
 {{$NEXT}}
+  - Breaking: a section's text is its body without the heading line, in
+    get_paragraph and update_paragraph alike. update_paragraph replaces the
+    body only and leaves the heading and the following section untouched
+    (it used to swallow the first line of the next section); content that
+    still starts with the heading line now gets that heading twice. Writing
+    back what get_paragraph returned leaves the page byte for byte as it was.
   - Breaking: heading_path is now the chain of a section's ancestors only.
     Siblings no longer leak into it: "# Intro", "## Alpha", "## Beta" yield
     Intro#Beta (was Intro#Alpha#Beta), and a following "# Other" yields

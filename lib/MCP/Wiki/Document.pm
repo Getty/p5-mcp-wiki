@@ -37,6 +37,17 @@ sub get_toc {
     return MCP::Wiki::TOC::Parser->parse_content($self->content);
 }
 
+=method get_paragraph
+
+    my $para = $doc->get_paragraph('Introduction#Background');
+
+Returns the section addressed by C<heading_path> as a hashref (C<heading>,
+C<heading_path>, C<content>, C<line_start>, C<line_end>), or nothing when no
+such heading exists. C<content> is the body of the section, without its
+heading line.
+
+=cut
+
 sub get_paragraph {
     my ($self, $heading_path) = @_;
     my @entries = $self->get_toc;
@@ -45,8 +56,9 @@ sub get_paragraph {
     my ($entry) = grep { $_->heading_path eq $heading_path } @entries;
     return unless $entry;
 
+    # The section is the body: the heading line (line_start) is not part of it
     my @lines = split /\n/, $self->content;
-    my $section = join("\n", @lines[$entry->line_start - 1 .. $entry->line_end - 1]);
+    my $section = join("\n", @lines[$entry->line_start .. $entry->line_end - 1]);
 
     return {
         heading      => $entry->heading,
@@ -57,6 +69,16 @@ sub get_paragraph {
     };
 }
 
+=method set_paragraph
+
+    $doc->set_paragraph('Introduction#Background', $new_body);
+
+Replaces the body of the section, leaving its heading line and every other
+section untouched. Takes what L</get_paragraph> returns as C<content>, so the
+two are inverse. Dies when the heading does not exist.
+
+=cut
+
 sub set_paragraph {
     my ($self, $heading_path, $new_content) = @_;
     my @entries = $self->get_toc;
@@ -66,12 +88,13 @@ sub set_paragraph {
         die "Heading not found: $heading_path";
     }
 
-    my @lines = split /\n/, $self->content;
+    # Keep trailing empty fields (-1): the blank line before the next heading
+    # and the file's final newline survive a get_paragraph -> set_paragraph trip
+    my @new_lines = split /\n/, $self->content, -1;
 
-    # Replace lines in the section (excluding the heading line itself)
-    my @new_lines = @lines;
-    splice @new_lines, $entry->line_start, $entry->line_end - $entry->line_start + 1,
-        split /\n/, $new_content;
+    # Replace the body of the section; the heading line itself stays
+    splice @new_lines, $entry->line_start, $entry->line_end - $entry->line_start,
+        split /\n/, $new_content, -1;
 
     Path::Tiny::path($self->file_path)->spew_utf8(join("\n", @new_lines));
 

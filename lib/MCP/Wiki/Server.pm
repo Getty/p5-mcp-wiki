@@ -248,7 +248,7 @@ sub _setup_tools {
     # Tool: get_paragraph
     $self->_add_tool(
         name        => 'get_paragraph',
-        description => 'Get content under a specific heading path',
+        description => 'Get the body of a section (without its heading line) by heading path',
         input_schema => {
             type => 'object',
             properties => {
@@ -326,7 +326,7 @@ sub _setup_tools {
     # Tool: update_paragraph
     $self->_add_tool(
         name        => 'update_paragraph',
-        description => 'Update content under a heading',
+        description => 'Replace the body of a section (its heading line stays) by heading path',
         input_schema => {
             type => 'object',
             properties => {
@@ -340,7 +340,7 @@ sub _setup_tools {
                 },
                 content => {
                     type => 'string',
-                    description => 'New content for the section',
+                    description => 'New body for the section, without the heading line',
                 },
                 reason => {
                     type => 'string',

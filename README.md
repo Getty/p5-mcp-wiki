@@ -46,9 +46,9 @@ line number. Siblings are not part of the chain: with `# Intro`, `## Alpha`,
 |------|----------|----------|-------------|
 | `list_pages` | | | List all wiki pages |
 | `get_toc` | `page` | | Get table of contents for a page |
-| `get_paragraph` | `page`, `heading_path` | | Get the section under a heading path, heading line included |
+| `get_paragraph` | `page`, `heading_path` | | Get the body of the section under a heading path (heading line not included) |
 | `create_page` | `page` | `content` | Create a new wiki page |
-| `update_paragraph` | `page`, `heading_path`, `content` | `reason` | Update a section's content |
+| `update_paragraph` | `page`, `heading_path`, `content` | `reason` | Replace a section's body; the heading line stays |
 | `rename_page` | `from`, `to` | | Rename/move a page |
 | `delete_page` | `page` | | Delete a page |
 | `get_section_history` | `page`, `heading_path` | | Get git history for a section (needs `use_git` and Git::Raw) |
@@ -60,10 +60,6 @@ line number. Siblings are not part of the chain: with `# Intro`, `## Alpha`,
 
 These behave as described today; they are tracked, not fixed:
 
-- `get_paragraph` returns the section including its heading line, while
-  `update_paragraph` replaces from the line after the heading but with the
-  length including it. Writing back what `get_paragraph` returned duplicates
-  the heading and swallows the first line of the following section (k2).
 - `restore_section` hands the full restored document to the section write,
   so a restore does not yield the section as it was (k3).
 
