@@ -1,0 +1,34 @@
+---
+claimed_at: 2026-10-25T08:29:48Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T08:29:48Z
+created: 2026-10-25T07:03:12Z
+id: 16
+priority: high
+started: 2026-10-25T08:29:48Z
+status: done
+tags:
+- bug
+- encoding
+title: list_pages returns non-ASCII page names double-encoded
+updated: 2026-10-25T08:29:48Z
+---
+
+Evidence: Server.pm:151/158 return undecoded readdir bytes. Over stdio with über.md and döc/x.md, list_pages returns "Ã¼ber.md" and "dÃ¶c/x.md"; get_toc/delete_page with those names answer "Page not found". Breaks the documented rule that list_pages returns exactly what the other tools accept.
+
+Fix: decode directory entries as UTF-8; skip (with a warn) names that are not valid UTF-8. ASCII names unchanged.
+
+Tests: über.md and 日本/x.md listed as character strings and accepted by get_toc with exactly the listed name; the t/36 property (list_pages == accepted names) holds with non-ASCII names.
+
+tests: t/43-server-list-pages.t. Red on HEAD: listed names are not character strings (is_deeply), delete_page with the character name 日本/x.md fails, non-UTF-8 name is listed raw and no warn. Uses structuredContent (the JSON text copy decodes ambiguously). Note: get_toc/get_paragraph with the raw listed bytes happen to pass on HEAD.
+
+From TA (k21 tests): delete_page answers 'Page not found' for a page below a non-ASCII directory (sub/日本/neu.md) even with git off, while get_toc reaches it — a path-resolution problem in delete's existence check/_resolve_page, not in listing. t/43 already asserts delete_page with 日本/x.md, so card 16's fix must cover it (all tools must accept non-ASCII directory components).
+
+Root cause was two-fold: list_pages returned raw readdir bytes, and _resolve_page concatenated Cwd::realpath's byte results with character components (an existing non-ASCII directory was re-encoded -> 'Page not found', e.g. delete_page 日本/x.md). Fix: _resolve_page walks encode('UTF-8', name) and returns a byte path (root, realpath, readdir all bytes); _page_name decodes; list_pages decodes each relative name, skips + warns on invalid UTF-8; History get_section_commits/auto_commit encode before -e (a non-ASCII wiki_root plus a non-ASCII page used to make auto_commit stage a removal). Server POD PAGE NAMES + skill confinement bullet. Verified: t/43 18/18 (no skips), t/36 t/39 green; scratch with root '…/jürgen/wiki', page 日本/über.md: create/get_toc/get_paragraph/update/list/rename/delete ok, with Git::Raw history 2 commits, rename commits both sides, status clean. HEAD(k22)+k16+t/43: prove -lr t/ PASS; Git::Raw t/42 t/49 t/50 t/51 t/43 PASS. CROSS-LANE (lane B, Document.pm, not applied): Document::_page_name now gets bytes, so its 3 messages (not valid UTF-8 / read-only / mode not restored) show a non-ASCII name double-encoded ('Page Ã¶/neu.md is read-only'). Proposed fix: /tmp/mcp-wiki-k16/document-page-name.patch (decode when the name downgrades to bytes; wide-char names pass as text); t/20-24 green with it, message correct in scratch. Should land with or right after k16.
+
+Ready for commit. HEAD is k22, so the patch is also git diff HEAD for these files: /tmp/mcp-wiki-k16/k16-on-k22.patch (lib/MCP/Wiki/Server.pm, lib/MCP/Wiki/Git/History.pm, .claude/skills/mcp-wiki-core/SKILL.md). Test: t/43-server-list-pages.t. Needs lane B's Document::_page_name decode (/tmp/mcp-wiki-k16/document-page-name.patch) to avoid mojibake in 3 Document messages for non-ASCII names.
+
+Lane B (Document.pm part): reviewed /tmp/mcp-wiki-k16/document-page-name.patch and replaced it with an equivalent: Document::_page_name now runs utf8::decode on the relative name (downgrades when possible, decodes only valid UTF-8, otherwise leaves the name as it is). Why not the patch as is: it decodes every name without wide characters, so a Latin-1-only character path (a 'use utf8' literal 'ö/x.md' is stored upgraded and does name the UTF-8 file on disk) came out as U+FFFD/x.md; utf8::decode gives ö/x.md there and the same result as the patch for Server byte paths, wide-char text and ASCII. Reproduced first via update_paragraph in a tempdir: 'Page Ã¶/ro.md is read-only', 'Page æ¥æ¬/bad.md is not valid UTF-8', 'Page Ã¶/ok.md was written, but its mode could not be restored' (chmod forced to fail via CORE::GLOBAL). After: 'Page ö/ro.md', 'Page 日本/bad.md', 'Page ö/ok.md', also with wiki_root below a non-ASCII dir (…/jürgen/wiki). t/20-t/24 PASS (24 tests); prove -lr t/ PASS (34 files, 433 tests, Git::Raw tests skip). Not a test of ours yet: no t/ file pins these three messages for non-ASCII names (test-writer item). t/43 prints 4 'Wide character in print' warnings from Test2's TAP formatter (non-ASCII test names, no UTF-8 output layer), cosmetic, test-writer item.
+
+Committed as 1a5e96d
