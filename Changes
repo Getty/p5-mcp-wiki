@@ -82,6 +82,9 @@
   - update_paragraph and restore_section refuse pages that are not valid UTF-8
     instead of replacing every non-UTF-8 byte with U+FFFD; the file is left
     untouched, and reading such a page still works.
+  - restore_section no longer drops the page's final newline or the blank line
+    before the next heading, and a page restored from a version with CRLF
+    line endings no longer gets stray carriage returns.
 
 0.001  2026-04-28
   - Initial release

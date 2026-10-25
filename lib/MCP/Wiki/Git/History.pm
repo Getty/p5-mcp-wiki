@@ -55,6 +55,8 @@ sub _head_commit {
 }
 
 # The page's text as of $commit, or nothing when the commit has no such file.
+# It is the LF text Document::_read_page works on: a page whose first line
+# ends in CRLF has its CRLFs turned into LF, any other page is used as it is.
 sub _page_text_at {
     my ($self, $commit, $page) = @_;
 
@@ -62,7 +64,9 @@ sub _page_text_at {
     my $blob = $entry->object;
     return unless $blob->is_blob;
 
-    return decode('UTF-8', $blob->content);
+    my $text = decode('UTF-8', $blob->content);
+    $text =~ s/\r\n/\n/g if $text =~ /\A[^\n]*\r\n/;
+    return $text;
 }
 
 # The repository's configured identity, or MCP::Wiki's own: a commit must not
@@ -134,7 +138,8 @@ sub get_section_commits {
     );
 
 Returns the section as it was in that commit, as a hashref: C<content> (the
-section including its heading line), C<heading>, C<line_start>, C<line_end>.
+section including its heading line, and the blank lines that ended it, as LF
+text), C<heading>, C<line_start>, C<line_end>.
 The commit may be given by an abbreviated hash. Dies when the commit, the page
 in it or the heading in that page does not exist.
 
@@ -185,6 +190,13 @@ C<content> is the whole document; nothing is written or committed. Dies when
 C<current_content> is missing or empty, when the heading does not exist in it,
 and in every case L</get_section_content_at_commit> dies.
 
+C<current_content> is LF text, as L<MCP::Wiki::Document> reads a page, and
+C<content> is LF text too; the historic page is read with the same line-ending
+rule. Everything outside the section comes back byte for byte, the final
+newline and blank lines at the end of the page included. The blank lines that
+end the section, between its text and the next heading, stay as they are now:
+only the heading line and the text before them are restored.
+
 =cut
 sub restore_section {
     my ($self, $page, $heading_path, $commit_hash, $opts) = @_;
@@ -201,10 +213,16 @@ sub restore_section {
     my ($current_entry) = grep { $_->heading_path eq $heading_path } @current_toc;
     die "Heading not found in current content: $heading_path" unless $current_entry;
 
-    # Build new content with restored section
-    my @lines = split /\n/, $current_content;
-    splice @lines, $current_entry->line_start - 1, $current_entry->line_end - $current_entry->line_start + 1,
-        split /\n/, $hist->{content};
+    # Split with -1: the final newline and blank lines at the end of the page
+    # are trailing empty fields, and the join has to give them back
+    my @lines = split /\n/, $current_content, -1;
+    my $start = $current_entry->line_start - 1;
+    my @current = @lines[$start .. $current_entry->line_end - 1];
+
+    # The restored text, followed by the blank lines that end the section now
+    my ($restored) = $self->_split_trailing_blank_lines(split /\n/, $hist->{content}, -1);
+    my (undef, $gap) = $self->_split_trailing_blank_lines(@current);
+    splice @lines, $start, scalar @current, @$restored, @$gap;
 
     my $new_content = join("\n", @lines);
 
@@ -214,6 +232,15 @@ sub restore_section {
         restored_from => $commit_hash,
         heading       => $heading_path,
     };
+}
+
+# Splits a section's lines into its text and the blank lines that end it; a
+# section's heading line is never blank, so the text is never empty.
+sub _split_trailing_blank_lines {
+    my ($self, @lines) = @_;
+    my @blank;
+    unshift @blank, pop @lines while @lines && $lines[-1] !~ /\S/;
+    return (\@lines, \@blank);
 }
 
 sub _get_parser {
@@ -303,6 +330,8 @@ __END__
 Reads and writes a wiki's history in the git repository at C<wiki_root>
 through L<Git::Raw>, which is loaded on first use. A section is found in each
 commit by its heading path: the page as it was in that commit is parsed again,
-nothing about sections is recorded in git. Page text is UTF-8.
+nothing about sections is recorded in git. Page text is UTF-8, and a page
+from history is read with L<MCP::Wiki::Document>'s line-ending rule: a CRLF
+page becomes LF text.
 
 =cut
