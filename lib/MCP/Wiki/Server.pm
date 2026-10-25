@@ -546,7 +546,7 @@ sub _setup_tools {
                 },
                 reason => {
                     type => 'string',
-                    description => 'Reason for the restore (used as git commit message)',
+                    description => 'Reason for the restore, passed on to on_change handlers in the restore event; a restore is not committed',
                 },
             },
             required => ['page', 'heading_path', 'commit_hash'],

@@ -60,8 +60,9 @@ chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
 | `get_section_history` | `page`, `heading_path` | | Get git history for a section (needs `use_git` and Git::Raw) |
 | `restore_section` | `page`, `heading_path`, `commit_hash` | `reason` | Restore a section from a git commit (needs `use_git` and Git::Raw) |
 
-`reason` becomes the git commit message when `use_git` is on; `restore_section`
-does not commit.
+`reason` becomes the whole git commit message when `use_git` is on; without one
+the commit gets a generated message naming the page. `restore_section` does not
+commit; its `reason` only goes out with the `restore` change event.
 
 ## Configuration
 

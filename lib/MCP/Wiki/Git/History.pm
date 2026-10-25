@@ -279,7 +279,8 @@ Stages the path, or each path in an array reference, as the working tree has
 it: a file that exists is added, one that is gone is removed from the index.
 A rename therefore stages both names, a delete the deleted one. Then it
 commits the index on top of HEAD; on a branch without commits it makes the
-first one. Author and
+first one. The commit message is the C<reason> when one with visible text is
+given, else C<$message>; never both. Author and
 committer are the repository's configured identity, or
 C<< MCP::Wiki <mcp-wiki@localhost> >> when none is set. Returns
 C<< { success => 1, hash => $id, message => $commit_message } >>, or
@@ -290,8 +291,9 @@ matches HEAD. Dies on any git error.
 sub auto_commit {
     my ($self, $paths, $message, %opts) = @_;
 
+    # A reason, when given, is the whole commit message
     my $reason = $opts{reason};
-    my $final_message = $reason // $message;
+    my $commit_message = defined $reason && $reason =~ /\S/ ? $reason : $message;
 
     my $repo = $self->repo;
     my $index = $repo->index;
@@ -321,7 +323,6 @@ sub auto_commit {
 
     # Create commit
     my $author = $self->_signature;
-    my $commit_message = $reason ? "$final_message\n\nReason: $reason" : $final_message;
 
     # Without an update_ref argument, Commit->create moves HEAD (and so the
     # branch it points to) to the new commit

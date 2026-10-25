@@ -145,7 +145,9 @@ does not declare it.
   fires its event, and only then. It needs `use_git` and a `git_history`; `restore` events
   are excluded. `auto_commit` takes a path or a list of paths and stages each as the work
   tree has it — present means added, missing means removed — so a rename commits `from` and
-  `to` together and a delete commits the removal.
+  `to` together and a delete commits the removal. The commit message is the event's
+  `reason` alone when it has visible text, else the generated one (`Updated page: m.md
+  (Intro#Alpha)`).
 - `restore_section`: the Server reads the page with `Document::read_for_update` (LF text and
   the page's line ending; a page that is not valid UTF-8 is refused before History is
   asked), hands History the LF text, writes the complete document History returns with

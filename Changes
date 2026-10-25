@@ -96,6 +96,10 @@
   - With --git, renaming and deleting a page are now committed (the old name
     removed, the new one added) instead of failing silently and leaving the
     repository out of step with the files.
+  - With --git, a given reason is the commit message as is (no repeated
+    "Reason:" trailer); without one the generated message is used.
+    restore_section's reason is described as what it is: passed on in the
+    restore event, not committed.
 
 0.001  2026-04-28
   - Initial release
