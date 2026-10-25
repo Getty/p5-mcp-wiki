@@ -1,0 +1,32 @@
+---
+claimed_at: 2026-10-25T07:11:55Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:11:55Z
+created: 2026-10-25T07:03:09Z
+id: 13
+priority: high
+started: 2026-10-25T07:11:55Z
+status: done
+tags:
+- bug
+- robustness
+title: Tool handlers die instead of answering with an error
+updated: 2026-10-25T07:11:55Z
+---
+
+Evidence: no eval around `get_section_commits` (Server.pm:493), `$git->restore_section` (:541), `$page_path->remove` (:452), and the file read inside `get_toc`/`get_paragraph` (:240, :272). delete_page on a directory named `dir.md` gives JSON-RPC -32603 "Internal error" over stdio, the cause only on stderr. get_toc on a mode-0000 page: same. MCP 0.15 catches the die, so the session survives, but the model learns nothing.
+
+Fix: every handler answers any failure with `text_result($msg, 1)`; no die escapes a handler.
+
+Tests: each case above through the tool code: isError set and a message naming the problem, no exception. A stand-in git_history that dies covers the history tools. Permission cases skip when running as root.
+
+tests: t/38-server-handler-errors.t (delete_page on dir.md, get_toc/get_paragraph on mode-0000 page, get_section_history/restore_section with dying stand-in; isError + message). Red on HEAD: 5 of 7 fail (the 5 handler-dies checks).
+
+Reproduced with t/38-server-handler-errors.t (test-writer): 5/7 fail — delete_page on dir.md dies 'Error unlink ... Is a directory', get_section_history/restore_section die with the stand-in's text, get_toc/get_paragraph on mode-0000 page die 'Permission denied' from Document::content. Sweep of all nine: list_pages/create/update/rename already eval'd; unwrapped also: lazy $self->git_history in both history tools and in _fire_on_change (outside its eval, after the write). Plan: per-call evals with prefixes at each escape point + a catch-all in _add_tool so no die can escape any tool, current or future; move the git_history build in _fire_on_change under eval so a successful write is never reported as failed.
+
+Also found (no new card needed, all already filed): against real Git::Raw 0.90 both history tools now answer 'Cannot read section history: commit is not of type Git::Raw::Commit' / 'Restore failed: Can't locate object method new via Git::Raw::Oid' — the API breakage is k12; before this change those died as -32603. delete_page/rename_page reaching a directory named dir.md is k28. Full-suite reds at handoff time are other lanes' tests landed ahead of their code: t/05 (k17, namespace::clean undeclared), t/21 (k19), t/22 (k30) — none touch Server.pm.
+
+Done. Server.pm: per-call evals at every escape point — get_toc/get_paragraph read -> 'Cannot read page: …', delete_page remove -> 'Delete failed: …', get_section_commits -> 'Cannot read section history: …', restore_section page read + History->restore_section -> 'Restore failed: …'. _add_tool now catches anything that still escapes and answers '<tool> failed: …' (covers e.g. a dying lazy git_history build or a non-hash History result). _fire_on_change builds git_history under eval and warns, so a written page is never reported as failed. Success results unchanged. SKILL.md Handlers bullet updated to the new fact. Verified: t/38-server-handler-errors.t 5/7 red before, 17/17 green after; stdio run of bin/mcp-wiki on a tempdir: delete_page dir.md and get_toc on a 0000 page return isError results, stderr empty; scratch checks of each prefix, the catch-all, the git_history-builder case (create succeeds + warn); t/30-t/41 green with and without Git::Raw 0.90. prove -lr t/: all green except t/05/t/21/t/22 (k17/k19/k30, other lanes). Proposed subject: 'Answer every tool failure with an error result instead of dying (k13)'.
+
+Committed as 44b5d19
