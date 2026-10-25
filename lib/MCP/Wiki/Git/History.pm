@@ -77,15 +77,37 @@ sub _signature {
         // Git::Raw::Signature->now('MCP::Wiki', 'mcp-wiki@localhost');
 }
 
+# The section's TOC entry in the page as of $commit, and its text: the heading
+# line and what follows up to the blank lines that end the section, which is
+# what restore_section brings back. Nothing when the page or heading is absent.
+sub _section_at {
+    my ($self, $commit, $page, $heading_path) = @_;
+
+    my $content = $self->_page_text_at($commit, $page);
+    return unless defined $content;
+
+    my ($entry) = grep { $_->heading_path eq $heading_path }
+        $self->_get_parser->parse_content($content);
+    return unless $entry;
+
+    my @lines = (split /\n/, $content)[$entry->line_start - 1 .. $entry->line_end - 1];
+    my ($text) = $self->_split_trailing_blank_lines(@lines);
+
+    return ($entry, join("\n", @$text));
+}
+
 =method get_section_commits
 
     my @commits = $git->get_section_commits('page.md', 'Introduction#Background');
 
 Walks the history from HEAD, newest first, and returns one hashref per commit
-in which the page has a section with that heading path: C<hash>, C<message>,
-C<author>, C<email>, C<time>, C<heading>, C<line_start>, C<line_end>. Returns
-nothing while the branch has no commits. Dies when the page does not exist in
-the working tree.
+that created or changed the section: the page has a section with that heading
+path there, and the first parent has none or one with a different text (heading
+line and text up to the blank lines that end the section, which a restore
+brings back). Commits touching other pages or other sections are left out.
+Each hashref holds C<hash>, C<message>, C<author>, C<email>, C<time>,
+C<heading>, C<line_start>, C<line_end>. Returns nothing while the branch has no
+commits. Dies when the page does not exist in the working tree.
 
 =cut
 sub get_section_commits {
@@ -103,16 +125,16 @@ sub get_section_commits {
     $walker->push($head);
 
     while (my $commit = $walker->next) {
-        # Try to find the file in this commit
-        my $content = $self->_page_text_at($commit, $page);
-        next unless defined $content;
-
-        # Parse TOC to find if heading_path exists
-        my $parser = $self->_get_parser;
-        my @toc = $parser->parse_content($content);
-
-        my ($heading_entry) = grep { $_->heading_path eq $heading_path } @toc;
+        my ($heading_entry, $text) = $self->_section_at($commit, $page, $heading_path);
         next unless $heading_entry;
+
+        # Listed only where the section is new or its text differs from the
+        # first parent's
+        my ($parent) = $commit->parents;
+        if ($parent) {
+            my (undef, $before) = $self->_section_at($parent, $page, $heading_path);
+            next if defined $before && $before eq $text;
+        }
 
         push @commits, {
             hash       => $commit->id,

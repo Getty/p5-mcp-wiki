@@ -85,6 +85,8 @@
   - restore_section no longer drops the page's final newline or the blank line
     before the next heading, and a page restored from a version with CRLF
     line endings no longer gets stray carriage returns.
+  - get_section_history lists only the commits that created or changed the
+    section; commits touching other pages or other sections are left out.
 
 0.001  2026-04-28
   - Initial release
