@@ -52,4 +52,7 @@ never run `dzil release` or `docker push`.
 later are not silently skipped. `DZIL_DOCKER_API_SKIP=1 dzil test` is the release-time
 equivalent without a container engine. The suite
 must stay green **without** `Git::Raw` installed (it is not installed on this machine),
-and must never touch the network or a real user's wiki.
+and must never touch the network or a real user's wiki. The opt-in files against the real
+API (`t/42`, `t/49`–`t/51`, `t/54`, `t/56`) skip without it; to exercise the history path,
+install Git::Raw into a throwaway local::lib under `/tmp` and append it to `PERL5LIB` for
+those files — never make the suite depend on it.

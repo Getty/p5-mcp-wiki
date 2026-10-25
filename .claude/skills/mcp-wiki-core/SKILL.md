@@ -32,7 +32,8 @@ the wiki. Open defects and proposals are karr cards (`karr list`), not part of t
 bin/mcp-wiki                  # Getopt::Long -> Server->new -> to_stdio
 lib/MCP/Wiki.pm               # $VERSION + POD only
 lib/MCP/Wiki/Server.pm        # Moo; the 9 tools, _resolve_page, on_change, auto-commit
-lib/MCP/Wiki/Document.pm      # one page: content, get_toc, get_paragraph, set_paragraph
+lib/MCP/Wiki/Document.pm      # one page: get_toc, get_paragraph, set_paragraph on top of
+                              # read_for_update/write_text (also the Server's restore path)
 lib/MCP/Wiki/TOC/Parser.pm    # line-based ATX parser -> entries, builds heading_path
 lib/MCP/Wiki/TOC/Entry.pm     # value object
 lib/MCP/Wiki/Git/History.pm   # Git::Raw: section commits, restore, auto_commit
@@ -160,7 +161,8 @@ History the same name — it looks the page up in each commit's tree by that str
   `MCP::Wiki <mcp-wiki@localhost>`. The first commit on an unborn branch has no parent; an
   index that matches HEAD commits nothing.
 - `git_history` can be passed to `new`. The Server calls only `get_section_commits`,
-  `restore_section` and `auto_commit` on it; tests inject stand-ins (t/36, t/37).
+  `restore_section` and `auto_commit` on it; tests inject stand-ins (t/37 and t/55 record
+  what the Server hands over).
 - `_fire_on_change` runs after the file is written: auto-commit first, then every handler in
   `eval` with a shallow copy of its own, errors `warn`ed. The write counts as successful
   whatever they do.
@@ -191,17 +193,24 @@ this; changing the registry or the build path is the maintainer's decision.
 ## Verification
 
 `prove -lr t/` is canonical (recursive). The suite runs without `Git::Raw` and without
-network; `t/41` covers `MCP::Wiki::Git` without a repository.
+network; `t/41` covers `MCP::Wiki::Git` without a repository, and the opt-in files against
+the real API (t/42, t/49–t/51, t/54, t/56) skip without it.
 
 | Guard | Holds |
 |-------|-------|
-| t/05 | cpanfile matches what `lib/` and `bin/` load; `Git::Raw` stays `recommends` |
+| t/05 | cpanfile matches what `lib/` and `bin/` load; `Git::Raw` stays `recommends`; minimum perl 5.020 or later |
 | t/06 | README tool table = registered schemas (required/optional); bin POD = `GetOptions` |
 | t/07 | no `update_content_hash`, history JSON file, `Digest::SHA`, `to_json`, `Types::Standard` |
 | t/08 | Docker setup and the single registry |
 | t/34 | request level: `tools/list` schemas = the registered ones; a missing required argument is refused with -32602 |
 | t/36 | every tool stays inside the root — extend it for every new tool |
 | t/37 | restore writes History's document once, via a stand-in |
-| t/42 | opt-in, real `Git::Raw` (skips without it): commit chain, author fallback, history, restore, non-ASCII |
+| t/39 | event `page`/`from`/`to` are named as `list_pages` names them, whatever the client's spelling; each handler gets its own copy |
+| t/42 | real `Git::Raw`: commit chain, author fallback, history, restore, non-ASCII |
+| t/43 | non-ASCII names are listed as text and accepted back (`get_toc`, `get_paragraph`, `delete_page`); a name that is not valid UTF-8 is skipped with a warning |
+| t/45 | tool errors carry no absolute path and no `at FILE line N.`; an unknown `heading_path` lists the page's paths, at most 50 |
+| t/46 | declared arguments, descriptions, every tool's annotations, `serverInfo.version` = `$MCP::Wiki::VERSION` |
+| t/47 | create/rename never replace a page that appears between the existence test and the write |
 
-A new or changed tool therefore also needs its README row (t/06) and t/36 coverage.
+A new or changed tool therefore also needs its README row (t/06), annotations (t/46) and t/36
+coverage.

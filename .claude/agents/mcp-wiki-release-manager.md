@@ -25,9 +25,10 @@ code goes back to the worker as a note on its card, not as your own fix. **Never
 `git push`, tag, or run `dzil release` — the maintainer's call every time.
 
 1. **cpanfile vs. reality.** `t/05-cpanfile.t` compares `use`/`require` in `lib/` and
-   `bin/` with the declared runtime list in both directions; still eyeball what its regex
-   cannot see (pragmas, lowercase namespaces, string `require`s). `Git::Raw` is genuinely
-   optional — it stays a `recommends`.
+   `bin/` with the declared runtime list in both directions (pragmas excluded, lowercase
+   names included) and asserts the declared minimum perl (at least 5.020); still eyeball
+   what its regex cannot see (string `require`s, modules only tests load). `Git::Raw` is
+   genuinely optional — it stays a `recommends`.
 2. **dist.ini** — `[@Author::GETTY]`, `copyright_year` current, `docker_image =
    raudssus/mcp-wiki` the only registry setting (`t/08-docker.t` pins the Docker setup).
 3. **`$VERSION`** — the next, unreleased version: above the last released version in
