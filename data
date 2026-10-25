@@ -1,0 +1,32 @@
+---
+claimed_at: 2026-10-25T07:58:02Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:58:02Z
+created: 2026-10-25T07:03:21Z
+id: 25
+priority: low
+started: 2026-10-25T07:58:02Z
+status: done
+tags:
+- git
+- tool-surface
+title: Commit messages repeat the reason; restore_section's reason is described as
+  a commit message
+updated: 2026-10-25T07:58:02Z
+---
+
+Depends on: the Git::Raw API card.
+Evidence: History.pm:204/224 build "why\n\nReason: why" when a reason is given (the generated "Updated page: X (heading)" is lost). restore_section's `reason` schema description says it is used as the git commit message, but restore is never auto-committed (Server.pm:593; README says so too).
+
+Fix (main agent's call): the commit message is the reason when one is given, else the generated message; no duplicated trailer. restore_section's `reason` description says what it actually does (it is passed on in the `restore` event). Whether restores should be committed is a separate proposal card.
+
+Tests: stand-in git_history asserts the message per event with and without reason; schema description check.
+
+tests: t/51-git-commit-message.t (opt-in real Git::Raw): create/update message names the page when no reason, equals the reason exactly when given, no 'Reason:' trailer in any commit. Red on HEAD 4 of 14 (reason trailer). t/46: restore_section reason description must not match /commit message/i (red on HEAD).
+
+History auto_commit: commit message = reason when it has visible text (undef/''/whitespace -> generated message; '0' counts), no 'Reason:' trailer. restore_section reason description: passed on in the restore event, restore not committed. README (reason paragraph) + skill auto-commit bullet updated. Verified: Git::Raw t/51 14/14, t/53 2/2, t/50/t/42/t/49/t/41/t/06/t/07 green; plain suite: only untracked red-first t/39 t/43-47 t/52 red (t/46 unchanged 17). DRIFT (not fixed, needs a card): _commit_message_for_event reads event->{page}, which a rename event lacks -> rename commits get message 'Renamed page: ' with no names (confirmed in scratch with real Git::Raw).
+
+Ready for commit after k21. k25 patch on top of k21: /tmp/mcp-wiki-k25/k25-on-k21.patch (History.pm, Server.pm, SKILL.md, README.md). Tests: t/51-git-commit-message.t, t/53-server-restore-reason.t. Open: rename commit message lacks names (drift note).
+
+Committed as a19ed49
