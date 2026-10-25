@@ -1,0 +1,32 @@
+---
+claimed_at: 2026-10-25T01:03:22Z
+claimed_by: offen-2610
+class: standard
+completed: 2026-10-25T01:03:22Z
+created: 2026-08-23T14:25:24Z
+id: 1
+priority: high
+started: 2026-10-25T00:55:30Z
+status: done
+tags:
+- bug
+- toc
+- wire-format
+title: heading_path sammelt Geschwister statt Vorfahren
+updated: 2026-10-25T01:03:22Z
+---
+
+MCP::Wiki::TOC::Parser::_build_heading_path sammelt alle vorangehenden Headings mit level <= aktuellem level, also auch Geschwister.
+
+Verifiziert an "# Intro / ## Alpha / ## Beta / # Other":
+  Alpha -> Intro#Alpha        (korrekt)
+  Beta  -> Intro#Alpha#Beta   (erwartet: Intro#Beta)
+  Other -> Intro#Other        (erwartet: Other)
+
+Folge: die Section-Adresse ist reihenfolgeabhaengig -- ein eingefuegter Geschwisterabschnitt aendert die Adresse aller folgenden Sections. Korrekt waere ein Stack, der beim Betreten eines Levels alle Eintraege >= level abraeumt.
+
+Blast radius: heading_path ist gleichzeitig Wire-Format von get_toc, Argument von vier Tools und der Schluessel, auf den die Git-Historie matcht. Ein Fix invalidiert jede Adresse, die Konsumenten bereits gespeichert haben -> ADR-wuerdig, nicht nebenbei.
+
+2026-10-15 04:49 Empfehlung (nicht umgesetzt, ADR-Entscheidung von Getty zu treffen): Stack-Parser statt 'level <=' -- beim Betreten von Level L alle Eintraege mit level >= L abraeumen, heading_path = Stack. Erwartet Intro#Alpha / Intro#Beta / Other. Abwaertskompatible Variante gibt es nicht (jede korrigierte Adresse aendert sich fuer Beta/Other-artige Faelle); Option: Fix + ein Release-Hinweis in Changes. Bleibt vor k2/k3, weil die Adressen beider davon abhaengen.
+
+2026-10-25 01:02 Umgesetzt in 3a5a3e1 (Branch offen-2610): Stack-Parser, Test t/10-toc.t war vorher rot. Also found: Skill mcp-wiki-core, CLAUDE.md, rules und Worker-Brief beschreiben die drei Defekte und Docker-WIP noch als offen (skilletor-verwaltet, nicht angefasst); get_toc char_count/content_preview zaehlen die Ueberschriftszeile weiter mit, obwohl get_paragraph jetzt den Koerper liefert; History.get_section_content_at_commit liefert weiter Ueberschrift+Koerper, restore_section verliert beim join das Schluss-Newline der Seite; Docker-Build und setpriv als root nicht live pruefbar.
