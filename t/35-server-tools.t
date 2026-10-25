@@ -29,9 +29,6 @@ sub data_of {
 # Create a test wiki directory
 my $wiki_dir = tempdir;
 
-# Initialize git repo
-system("git init -q $wiki_dir") == 0 or die "git init failed";
-
 subtest 'list_pages with empty wiki' => sub {
     my $server = MCP::Wiki::Server->new(wiki_root => "$wiki_dir");
 
@@ -39,9 +36,9 @@ subtest 'list_pages with empty wiki' => sub {
         {}
     );
 
-    my $text = $result->{content}->[0]->{text};
-    like($text, qr/"pages"\s*:\s*\[\]/, 'empty wiki returns empty pages array');
-    like($text, qr/"count"\s*:\s*0/, 'count is 0');
+    my $data = data_of($result);
+    is_deeply($data->{pages}, [], 'empty wiki returns empty pages array');
+    is($data->{count}, 0, 'count is 0');
 };
 
 subtest 'create_page' => sub {
@@ -51,8 +48,7 @@ subtest 'create_page' => sub {
         { page => 'test.md', content => "# Test\n\nHello world." }
     );
 
-    my $text = $result->{content}->[0]->{text};
-    like($text, qr/"success":\s*1/, 'create_page returns success');
+    ok(data_of($result)->{success}, 'create_page returns success');
     ok(-e "$wiki_dir/test.md", 'file was created');
 };
 
@@ -63,9 +59,9 @@ subtest 'get_toc after creating page' => sub {
         { page => 'test.md' }
     );
 
-    my $text = $result->{content}->[0]->{text};
-    like($text, qr/"heading":\s*"Test"/, 'toc contains the heading');
-    like($text, qr/"level":\s*1/, 'heading level is 1');
+    my $data = data_of($result);
+    is($data->{entries}[0]{heading}, 'Test', 'toc contains the heading');
+    is($data->{entries}[0]{level}, 1, 'heading level is 1');
 };
 
 subtest 'get_paragraph' => sub {
@@ -75,8 +71,9 @@ subtest 'get_paragraph' => sub {
         { page => 'test.md', heading_path => 'Test' }
     );
 
-    my $text = $result->{content}->[0]->{text};
-    like($text, qr/Hello world/, 'paragraph content returned');
+    my $data = data_of($result);
+    is($data->{heading_path}, 'Test', 'paragraph is the one asked for');
+    like($data->{content}, qr/Hello world/, 'paragraph content returned');
 };
 
 subtest 'update_paragraph' => sub {
@@ -86,8 +83,7 @@ subtest 'update_paragraph' => sub {
         { page => 'test.md', heading_path => 'Test', content => "Updated content here." }
     );
 
-    my $text = $result->{content}->[0]->{text};
-    like($text, qr/"success":\s*1/, 'update returns success');
+    ok(data_of($result)->{success}, 'update returns success');
 
     # Verify content changed
     my $content = Path::Tiny::path("$wiki_dir/test.md")->slurp_utf8;
@@ -111,8 +107,7 @@ subtest 'rename_page' => sub {
         { from => 'old.md', to => 'new.md' }
     );
 
-    my $text = $result->{content}->[0]->{text};
-    like($text, qr/"success":\s*1/, 'rename returns success');
+    ok(data_of($result)->{success}, 'rename returns success');
     ok(-e "$wiki_dir/new.md", 'new file exists');
     ok(!-e "$wiki_dir/old.md", 'old file removed');
 };
@@ -126,8 +121,7 @@ subtest 'delete_page' => sub {
         { page => 'delete-me.md' }
     );
 
-    my $text = $result->{content}->[0]->{text};
-    like($text, qr/"success":\s*1/, 'delete returns success');
+    ok(data_of($result)->{success}, 'delete returns success');
     ok(!-e "$wiki_dir/delete-me.md", 'file was deleted');
 };
 
@@ -158,8 +152,9 @@ subtest 'path traversal blocked' => sub {
         { page => '../../../etc/passwd' }
     );
 
-    my $text = $result->{content}->[0]->{text};
-    like($text, qr/error|invalid|not found/i, 'path traversal is blocked');
+    ok($result->{isError}, 'path traversal is reported as an error result');
+    like($result->{content}->[0]->{text}, qr/\AInvalid page: Path outside wiki root: \.\.\/\.\.\/\.\.\/etc\/passwd/,
+        'the refusal names the escape from the wiki root');
 };
 
 done_testing;

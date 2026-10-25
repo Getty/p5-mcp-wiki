@@ -149,8 +149,7 @@ this; changing the registry or the build path is the maintainer's decision.
 ## Verification
 
 `prove -lr t/` is canonical (recursive). The suite runs without `Git::Raw` and without
-network; `t/40` accepts either load outcome of `MCP::Wiki::Git`, `t/41` covers it without a
-repository.
+network; `t/41` covers `MCP::Wiki::Git` without a repository.
 
 | Guard | Holds |
 |-------|-------|
@@ -158,6 +157,7 @@ repository.
 | t/06 | README tool table = registered schemas (required/optional); bin POD = `GetOptions` |
 | t/07 | no `update_content_hash`, history JSON file, `Digest::SHA`, `to_json`, `Types::Standard` |
 | t/08 | Docker setup and the single registry |
+| t/34 | request level: `tools/list` schemas = the registered ones; a missing required argument is refused with -32602 |
 | t/36 | every tool stays inside the root — extend it for every new tool |
 | t/37 | restore writes History's document once, via a stand-in |
 

@@ -76,8 +76,10 @@ sub tool {
     return $tool;
 }
 
-# Returns ( $result, $text ); a handler that dies would take the stdio session
-# down with it, so that counts as a failure of its own.
+# Returns ( $result, $text ). Tools registered through _add_tool turn a die into
+# an isError result "<tool> failed: ...", so a handler that dies instead of
+# rejecting deliberately looks like a rejection here; callers compare $text
+# where the reason matters. The DIED branch only fires if a die escapes anyway.
 sub call {
     my ( $server, $name, $args ) = @_;
     my $tool   = tool( $server, $name );
