@@ -1,0 +1,31 @@
+---
+claimed_at: 2026-10-25T08:31:22Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T08:31:22Z
+created: 2026-10-25T07:03:24Z
+id: 28
+priority: low
+started: 2026-10-25T08:31:22Z
+status: done
+tags:
+- bug
+title: Directories named *.md are treated as pages
+updated: 2026-10-25T08:31:22Z
+---
+
+Evidence: `_resolve_page` checks only the name (Server.pm:134); rename/delete check only existence. rename_page moved a directory dir.md including a non-.md file inside it; delete_page on it dies (see the handler card).
+
+Fix: an existing name that is not a regular file is refused by every tool (get_toc, get_paragraph, update, rename source, delete); create_page on such a name errors; list_pages does not list it.
+
+Tests: dir.md directory: each tool answers isError and the directory is untouched.
+
+tests: t/44-server-non-file-pages.t. Red on HEAD: update_paragraph and rename_page on dir.md succeed (rename moves the directory); get_toc/get_paragraph/delete/create already answer isError, list_pages already omits it (those assertions green, kept as guards).
+
+tests correction: only rename_page on dir.md is red on HEAD (moves the directory); update_paragraph is already refused. Everything else green as guards.
+
+_resolve_page now refuses a resolved path that exists but is no plain file: 'Not a wiki page (a directory): dir.md' / '(not a plain file)' for FIFOs etc. Central, so every tool (incl. rename target, list_pages via is_file) gets it; a directory named x.md still works as a directory component (d.md/inner.md). Scratch: FIFO f.md refused at once (no blocking read). POD PAGE NAMES (third item), README refusal list, skill confinement bullet. Verified: t/44 32/32, t/38 (directory message claim kept: message says 'a directory'), t/36 green; HEAD(k22)+k16+k20+k28 with t/43 t/52 t/44: prove -lr t/ PASS; tree: red only in untracked t/45 t/46 t/47 t/55 (t/45 list unchanged).
+
+Ready for commit after k20. Patch on top of k20: /tmp/mcp-wiki-k28/k28-on-k20.patch (lib/MCP/Wiki/Server.pm, .claude/skills/mcp-wiki-core/SKILL.md, README.md). Test: t/44-server-non-file-pages.t.
+
+Committed as ae8622e
