@@ -123,7 +123,15 @@ does not declare it.
 - `git_history` is lazy: `undef` unless `use_git` is on and `eval { require Git::Raw }`
   succeeds; the history tools then answer "Git history not available". That eval-require is
   the sanctioned exception to `getty-perl-core`'s use-at-the-top rule — `Git::Raw` is a
-  `recommends`, never a file-level `use`.
+  `recommends`, never a file-level `use`. Loading `Git::Raw` before `MCP::Server`
+  (Mojolicious) segfaults on this build: one more reason it stays lazy, and why t/42 loads
+  the server first.
+- Only History (and `MCP::Wiki::Git`, its deprecated subclass) calls `Git::Raw`; the Server
+  only probes with the require. `Git::Raw` takes and returns bytes: paths and commit messages
+  go in encoded as UTF-8, blob text, messages and author come out decoded.
+- A commit is signed with the repository's configured identity, else
+  `MCP::Wiki <mcp-wiki@localhost>`. The first commit on an unborn branch has no parent; an
+  index that matches HEAD commits nothing.
 - `git_history` can be passed to `new`. The Server calls only `get_section_commits`,
   `restore_section` and `auto_commit` on it; tests inject stand-ins (t/36, t/37).
 - `_fire_on_change` runs after the file is written: auto-commit first, then every handler in
@@ -160,5 +168,6 @@ network; `t/41` covers `MCP::Wiki::Git` without a repository.
 | t/34 | request level: `tools/list` schemas = the registered ones; a missing required argument is refused with -32602 |
 | t/36 | every tool stays inside the root — extend it for every new tool |
 | t/37 | restore writes History's document once, via a stand-in |
+| t/42 | opt-in, real `Git::Raw` (skips without it): commit chain, author fallback, history, restore, non-ASCII |
 
 A new or changed tool therefore also needs its README row (t/06) and t/36 coverage.

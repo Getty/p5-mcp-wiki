@@ -574,10 +574,6 @@ sub _setup_tools {
                 return $tool->text_result("Restore failed: $@", 1);
             }
 
-            if ($result->{conflict}) {
-                return $tool->structured_result($result);
-            }
-
             # History already patched the section into the whole document, so
             # that document replaces the page; the write still goes through
             # _resolve_page, like every file access of a tool

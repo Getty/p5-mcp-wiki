@@ -73,6 +73,12 @@
     counts no longer count the CRs, and an empty "# " heading line no longer
     yields a heading named by a stray CR. Pages with LF line endings are
     unchanged.
+  - With --git, creating and updating a page now commits it, authored with the
+    repository's git identity or "MCP::Wiki <mcp-wiki@localhost>" when none
+    is configured; get_section_history and restore_section now work,
+    including non-ASCII headings and text. Before, every commit failed and
+    the history tools could not read the repository. JSON::MaybeXS is no
+    longer a runtime requirement.
 
 0.001  2026-04-28
   - Initial release

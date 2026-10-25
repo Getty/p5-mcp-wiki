@@ -53,10 +53,4 @@ published in MCP-Wiki 0.001. It subclasses L<MCP::Wiki::Git::History> and
 keeps the old C<new(wiki_root =E<gt> ...)>, C<wiki_root>, C<repo>,
 C<get_head_hash> and C<auto_commit($file, $message)> interface.
 
-Known defect: C<auto_commit> does not work. The
-L<MCP::Wiki::Git::History/auto_commit> it delegates to calls C<files> and
-C<get> on L<Git::Raw::Index> and C<create_commit> on L<Git::Raw::Repository>,
-none of which L<Git::Raw> provides (checked against Git::Raw 0.90). It dies
-at the first of them, before a commit is made.
-
 =cut
