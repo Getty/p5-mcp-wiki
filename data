@@ -1,0 +1,32 @@
+---
+claimed_at: 2026-10-25T07:33:52Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:33:52Z
+created: 2026-10-25T07:03:19Z
+id: 23
+priority: medium
+started: 2026-10-25T07:33:52Z
+status: done
+tags:
+- git
+- bug
+title: get_section_history lists every commit in which a section exists, not those
+  that changed it
+updated: 2026-10-25T07:33:52Z
+---
+
+Depends on: the Git::Raw API card.
+Evidence (with the API fixed in a scratch subclass): the history of Intro#Alpha listed "v2, unrelated page, v1"; the middle commit only touched other.md. A client cannot pick a restore point from that.
+
+Fix: list only commits in which the section's text (heading line + body) differs from its text in the first parent, or the section is new there. Output format unchanged.
+
+Tests: opt-in real-Git::Raw file: a commit touching only another page, and one touching only another section of the same page, are not listed.
+
+From k30 (WB): History parses pages raw, without Document's CRLF->LF step, so on a CRLF page with an empty '# ' heading its heading_paths differ from Document's (edge case). When touching History's section lookup, parse the same normalised text Document does.
+
+tests: t/49-git-section-history.t (opt-in, same BEGIN isolation as t/42; 5 commits via tools: create page, create other page, change Beta, change Alpha x2). Expects Intro#Alpha -> [c5,c4,c1] newest first, Intro#Beta -> [c3,c1], keys unchanged. Red on HEAD: 3 assertions (Alpha list has 5 entries, count, Beta list).
+
+WA: get_section_commits lists a commit only when the section is new there or its text (heading line + text above its trailing blank lines — the span a restore brings back) differs from the first parent's; output unchanged. Gap-only commits not listed (restoring them would change nothing). t/49 passes with Git::Raw 0.90 and fails on HEAD+k24-only on the listing checks; t/42 still passes. Code in History.pm on top of k24 (commit after k24).
+
+Committed as 37355f1
