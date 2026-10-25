@@ -1,0 +1,30 @@
+---
+claimed_at: 2026-10-25T08:33:30Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T08:33:30Z
+created: 2026-10-25T07:03:25Z
+id: 29
+priority: low
+started: 2026-10-25T08:33:30Z
+status: done
+tags:
+- robustness
+- concurrency
+title: create_page and rename_page check existence, then act
+updated: 2026-10-25T08:33:30Z
+---
+
+Evidence: create_page (Server.pm:303 then 309) and rename_page (:406 then 412) test for existence and then write/move; a racing create in between is silently overwritten. Perl `rename` replaces an existing target.
+
+Fix: create_page creates the file exclusively (fails if it appeared meanwhile); rename_page never replaces an existing target (no-clobber move). Error texts unchanged where they exist today.
+
+Tests: existing-target errors still hold; exclusive create verified by pre-creating the file between check and write via a hook, or by asserting the no-clobber primitive.
+
+tests: t/47-server-races.t. No seam exists, so the window is opened by wrapping Path::Tiny::mkpath (both tools call it on the target's parent between the -e check and the write) to create the racing file there; the test asserts the hook fired so it cannot pass vacuously. Needs the fix to keep calling ->parent->mkpath after the existence check (or the worker may provide an explicit hook and the test adapts). Red on HEAD: create overwrites racer, rename replaces racer and loses source (5 assertions). Existing-target guards green.
+
+create_page: new _create_exclusive (sysopen O_EXCL, UTF-8 bytes, binmode; on a failed write/close the incomplete file is unlinked) -> 0 on EEXIST -> 'Page already exists: X' (same text). rename_page: new _move_no_clobber (link + unlink; EEXIST or target present -> 'Target already exists: X'; if unlink fails the new name is removed again; filesystems without hard links fall back to Path::Tiny move after one more -e/-l test). ->parent->mkpath stays between check and act (t/47 hook). Trade-off (mine): create is no longer temp+rename atomic — a reader in another process may briefly see the page while it is written; exclusivity wins. Verified: t/47 16/16; scratch: no-hardlink fallback (link overridden to EPERM) renames, unlink failure (read-only source dir) -> error, both names consistent; created mode 0644 under umask 022, UTF-8 content, default '# d.md'; Git::Raw t/42 t/49 t/50 t/51 PASS; tree red only in untracked t/55 (card 57); chain HEAD+k16..k29 with t/43-47 t/52 PASS.
+
+Ready for commit after k27. Patch on top of k27: /tmp/mcp-wiki-k29/k29-on-k27.patch (lib/MCP/Wiki/Server.pm, .claude/skills/mcp-wiki-core/SKILL.md). Test: t/47-server-races.t.
+
+Committed as 97153cf
