@@ -1,0 +1,25 @@
+---
+claimed_at: 2026-10-25T08:41:00Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T08:41:00Z
+created: 2026-10-25T08:36:38Z
+id: 58
+priority: low
+started: 2026-10-25T08:36:39Z
+status: done
+tags:
+- docs
+title: 'Docs: agent notes and skill guard table after the bug cards'
+updated: 2026-10-25T08:41:00Z
+---
+
+The agent files still describe pre-session test mechanics (git init in t/35, regex over JSON in t/35, old file-number groups, t/05 blind spots k17 closed) and say nothing about the opt-in Git::Raw files; the skill guard table lists none of the new guards (t/39 event names, t/43 non-ASCII names, t/45 error text, t/46 schemas/annotations, t/47 races) and its Layers line for Document predates read_for_update/write_text.
+
+Fix: agent files (main agent, prose) and a skill pass (worker). No code.
+
+Skill pass done (worker): Layers Document line now names get_toc/get_paragraph/set_paragraph on top of read_for_update/write_text (also the restore path); guard rows t/39, t/43, t/45, t/46, t/47 added; t/05 row + minimum perl 5.020; opt-in real-Git::Raw files (t/42, t/49-t/51, t/54, t/56) sentence; t/42 row trimmed accordingly; stand-in note now t/37/t/55; closing line adds annotations (t/46). Rest checked line by line against lib/ - no other stale fact. t/43 row says what t/43 checks (get_toc, get_paragraph, delete_page accept listed names), not 'every tool'. prove -l t/06 t/07: PASS. Patch: /tmp/mcp-wiki-k58/skill.patch (skill file only; applies to HEAD).
+
+Skill-only diff in .claude/skills/mcp-wiki-core/SKILL.md (+16/-7): Layers Document line, guard rows t/39/t/43/t/45/t/46/t/47, t/05 perl 5.020, opt-in Git::Raw sentence, stand-in note, closing line +annotations. No code. t/06+t/07 PASS. Patch /tmp/mcp-wiki-k58/skill.patch. Proposed subject: Bring the mcp-wiki-core skill's guard table up to date (k58); no Changes entry (agent/skill docs are not shipped behavior).
+
+Committed as bae8ef6
