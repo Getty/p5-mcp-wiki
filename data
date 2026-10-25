@@ -1,0 +1,77 @@
+{"action":"edit","agent":"Torsten Raudssus","detail":"todo","task_id":27,"ts":"2026-10-25T07:20:42Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"todo","task_id":29,"ts":"2026-10-25T07:20:43Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":55,"ts":"2026-10-25T07:21:22Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":12,"ts":"2026-10-25T07:22:25Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":12,"ts":"2026-10-25T07:23:11Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"done","task_id":12,"ts":"2026-10-25T07:23:12Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":24,"ts":"2026-10-25T07:23:50Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":24,"ts":"2026-10-25T07:25:16Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"todo","task_id":23,"ts":"2026-10-25T07:25:17Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"todo","task_id":21,"ts":"2026-10-25T07:27:09Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"todo","task_id":25,"ts":"2026-10-25T07:27:10Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":24,"ts":"2026-10-25T07:27:17Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":24,"ts":"2026-10-25T07:27:18Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"todo","task_id":16,"ts":"2026-10-25T07:27:27Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":31,"ts":"2026-10-25T07:29:53Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":31,"ts":"2026-10-25T07:29:54Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":14,"ts":"2026-10-25T07:30:09Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":14,"ts":"2026-10-25T07:30:10Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":23,"ts":"2026-10-25T07:30:33Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":23,"ts":"2026-10-25T07:30:35Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"backlog","task_id":55,"ts":"2026-10-25T07:31:14Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":14,"ts":"2026-10-25T07:31:41Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":31,"ts":"2026-10-25T07:31:42Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":14,"ts":"2026-10-25T07:32:44Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"done","task_id":14,"ts":"2026-10-25T07:32:45Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":24,"ts":"2026-10-25T07:33:16Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"done","task_id":24,"ts":"2026-10-25T07:33:17Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":23,"ts":"2026-10-25T07:33:51Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"done","task_id":23,"ts":"2026-10-25T07:33:52Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":21,"ts":"2026-10-25T07:34:11Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":31,"ts":"2026-10-25T07:35:01Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":31,"ts":"2026-10-25T07:35:02Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":15,"ts":"2026-10-25T07:35:06Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":21,"ts":"2026-10-25T07:35:53Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":15,"ts":"2026-10-25T07:38:00Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":15,"ts":"2026-10-25T07:38:44Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":31,"ts":"2026-10-25T07:39:04Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"done","task_id":31,"ts":"2026-10-25T07:39:05Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":15,"ts":"2026-10-25T07:39:30Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"done","task_id":15,"ts":"2026-10-25T07:39:31Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":32,"ts":"2026-10-25T07:40:07Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":21,"ts":"2026-10-25T07:42:37Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":21,"ts":"2026-10-25T07:42:37Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":25,"ts":"2026-10-25T07:42:40Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":32,"ts":"2026-10-25T07:43:56Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":21,"ts":"2026-10-25T07:45:41Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":25,"ts":"2026-10-25T07:45:42Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":25,"ts":"2026-10-25T07:45:43Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":22,"ts":"2026-10-25T07:45:48Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":22,"ts":"2026-10-25T07:50:16Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":22,"ts":"2026-10-25T07:50:17Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":16,"ts":"2026-10-25T07:50:21Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":56,"ts":"2026-10-25T07:56:31Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":57,"ts":"2026-10-25T07:56:32Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":21,"ts":"2026-10-25T07:57:29Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"done","task_id":21,"ts":"2026-10-25T07:57:29Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"backlog","task_id":56,"ts":"2026-10-25T07:57:45Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"backlog","task_id":57,"ts":"2026-10-25T07:57:46Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":25,"ts":"2026-10-25T07:58:02Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"done","task_id":25,"ts":"2026-10-25T07:58:02Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"review","task_id":22,"ts":"2026-10-25T07:58:35Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"done","task_id":22,"ts":"2026-10-25T07:58:36Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":16,"ts":"2026-10-25T07:59:06Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":16,"ts":"2026-10-25T07:59:07Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":20,"ts":"2026-10-25T07:59:11Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":20,"ts":"2026-10-25T08:00:27Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":20,"ts":"2026-10-25T08:00:28Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":28,"ts":"2026-10-25T08:00:31Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":28,"ts":"2026-10-25T08:04:14Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":28,"ts":"2026-10-25T08:04:15Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":26,"ts":"2026-10-25T08:04:19Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":26,"ts":"2026-10-25T08:09:04Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":26,"ts":"2026-10-25T08:09:04Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":27,"ts":"2026-10-25T08:09:08Z"}
+{"action":"edit","agent":"mcp-wiki-worker","detail":"in-progress","task_id":27,"ts":"2026-10-25T08:12:07Z"}
+{"action":"handoff","agent":"mcp-wiki-worker","detail":"review","task_id":27,"ts":"2026-10-25T08:12:08Z"}
+{"action":"move","agent":"mcp-wiki-worker","detail":"in-progress","task_id":29,"ts":"2026-10-25T08:12:11Z"}
