@@ -1,0 +1,31 @@
+---
+claimed_at: 2026-10-25T07:39:05Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:39:05Z
+created: 2026-10-25T07:03:27Z
+id: 31
+priority: low
+started: 2026-10-25T07:39:05Z
+status: done
+tags:
+- packaging
+title: Minimum Perl is not declared
+updated: 2026-10-25T07:39:05Z
+---
+
+Evidence: the effective floor is 5.020 (MCP, JSON::Schema::Tiny); `use feature 'signatures'` (Server.pm:11) warns "experimental" on 5.20 to 5.34. No `perl` requirement in cpanfile/dist.ini.
+
+Fix: follow getty-perl-core / the bundle's convention for declaring the minimum Perl and for signatures; if the convention does not settle the version, note the options on the card instead of choosing.
+
+Tests: t/05 or a small check that the declared minimum exists.
+
+Convention settles it: deps live in cpanfile, not dist.ini (getty-perl-release-author-getty #4); sibling Getty repos put "requires 'perl', '5.020';" as cpanfile line 1 (all 4 MCP siblings p5-mcp-k8s/-hub/-picnic/-arcraiders + ~20 more); MCP 0.15 and JSON::Schema::Tiny 0.034 both declare perl >= 5.020; lib/ and bin/ use nothing newer than 5.20 (scanned: no <<~, postfix deref, isa, try, use v5.x). dist.ini: no change. PREPARED, not applied (cpanfile carries card 12's uncommitted change): insert "requires 'perl', '5.020';" as line 1 of cpanfile. Three dependencies: (1) t/05 goes RED with that line ('requires perl is loaded by lib/ or bin/', verified in a /tmp copy) - TB must drop 'perl' from the reverse check and add one assertion; verified shape in /tmp: parse requires 'perl' version from cpanfile, ok(defined && >= 5.020), delete $requires{perl} - green with the line, red without. (2) Signatures: Server.pm:11 'use feature "signatures"' prints 'The signatures feature is experimental' at compile time on 5.20-5.34 (perl5360delta: stable and warning-free only from 5.36). Options (lane A, Server.pm): (a) add "no warnings 'experimental::signatures';" after it - one line, keeps the documented sub ($tool, $args) handlers, harmless on 5.40 (checked); equivalent to what the Mojo::Base -signatures siblings get; (b) "use experimental 'signatures';" instead (experimental.pm is core since 5.20); (c) drop signatures for my ($tool, $args) = @_ in the 10 handlers (getty-perl-core sub style, but larger diff + skill text); (d) declare 5.036 instead - no Server change but excludes 5.20-5.34 (e.g. Ubuntu 22.04's 5.34, RHEL 9's 5.32) and departs from every sibling. Recommend 5.020 + (a). No old perl on this machine (only 5.40.1), so the 5.20-5.34 warning is from the docs, not reproduced.
+
+Applied: cpanfile line 1 "requires 'perl', '5.020';" (cpanfile free after k12). dzil build (DZIL_DOCKER_API_SKIP=1, /tmp): META runtime requires perl 5.020, Makefile.PL 'use 5.020' + MIN_PERL_VERSION 5.020. t/05 is now RED at test 12 'requires perl is loaded by lib/ or bin/' exactly as predicted - needs TB's t/05 change in the same commit (skip perl in the reverse loop + assert a declared minimum >= 5.020; shape verified earlier in /tmp).
+
+Coordinator decided option (a): add "no warnings 'experimental::signatures';" right after Server.pm:11; house-style question (signatures vs @_) goes to proposal card 55. Edit waits until k14 (which also touches Server.pm) is committed; TB is updating t/05 for 'perl'.
+
+Done. Files: cpanfile (line 1: requires 'perl', '5.020'), t/05-cpanfile.t (TB: perl dropped from the reverse check, asserts a declared minimum >= 5.020), lib/MCP/Wiki/Server.pm (one line after use feature 'signatures': no warnings 'experimental::signatures'; decision (a), house-style question on k55). Verified: t/05 green (test 12 'cpanfile declares a minimum perl of at least 5.020'), red in a /tmp copy without the cpanfile line; Server.pm loads warning-free under -w on 5.40 (5.20-5.34 warning suppression per perl5360delta, no old perl here to reproduce); dzil build (DZIL_DOCKER_API_SKIP=1, earlier): META runtime perl 5.020, Makefile.PL use 5.020 + MIN_PERL_VERSION. prove -lr t/: red only the untracked red-first files t/24, t/39, t/43-t/47; t/42, t/49-t/51 skip (no Git::Raw); everything else green.
+
+Committed as 07ca7fb
