@@ -127,6 +127,7 @@
     spelling the client uses (./a.md, sub/../a.md, an in-root symlink).
   - With --git, a rename without reason is committed as "Renamed page: old ->
     new" instead of "Renamed page: ".
+  - The POD documents every public method and lists the tools.
 
 0.001  2026-04-28
   - Initial release

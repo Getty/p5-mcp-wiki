@@ -28,6 +28,15 @@ sub parse_file {
     return $class->parse_content($content);
 }
 
+=method parse_file
+
+    my @entries = MCP::Wiki::TOC::Parser->parse_file('wiki/page.md');
+
+Reads the file as UTF-8 and returns what L</parse_content> returns for its
+text. Dies when the file cannot be read.
+
+=cut
+
 sub parse_content {
     my ($class, $content) = @_;
 
@@ -94,6 +103,23 @@ sub parse_content {
 
     return @entries;
 }
+
+=method parse_content
+
+    my @entries = MCP::Wiki::TOC::Parser->parse_content($markdown);
+
+Returns one L<MCP::Wiki::TOC::Entry> per heading of C<$markdown>, in document
+order, or an empty list when it has none. A section runs from its heading line
+to the line before the next heading of any level; the last one ends at the
+last line of C<$markdown>, trailing empty lines not counted. Line numbers are
+1-based and belong to this one parse.
+
+Each entry's C<heading_path> joins the headings of its open ancestors and its
+own with C<#>: a heading closes every open heading of the same or a deeper
+level, so C<# A>, C<### C>, C<## B> give C<A>, C<A#C> and C<A#B>. Duplicate
+paths are kept as they are, not made unique.
+
+=cut
 
 sub _build_heading_path {
     my ($class, $stack, $level, $heading) = @_;

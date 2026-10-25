@@ -98,4 +98,21 @@ sub as_hash {
     };
 }
 
+=method as_hash
+
+    my $hash = $entry->as_hash;
+
+Returns the entry as a plain hashref with the keys C<level>, C<heading>,
+C<anchor>, C<heading_path>, C<line_start>, C<line_end>, C<content_preview>
+and C<char_count>, each holding the attribute of that name. This is the wire
+form of a TOC entry: the C<get_toc> tool of L<MCP::Wiki::Server> answers with
+a list of these.
+
+Both C<content_preview> and C<char_count> cover the section with its heading
+line, its lines joined by LF and without a final newline. C<char_count>
+counts characters, not bytes; C<content_preview> is the first 100 of them,
+followed by C<...> when the section is longer.
+
+=cut
+
 1;

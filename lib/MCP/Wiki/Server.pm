@@ -49,6 +49,13 @@ has commit_reason_required => (
     default => 0,
 );
 
+=attr server
+
+The L<MCP::Server> the tools are registered on, named C<MCP-Wiki> with the
+distribution's version. Built on first use; one passed to C<new> gets the nine
+tools added to it.
+
+=cut
 has server => (
     is => 'lazy',
     builder => '_build_server',
@@ -59,6 +66,16 @@ has _on_change_handlers => (
     default => sub { [] },
 );
 
+=attr git_history
+
+The L<MCP::Wiki::Git::History> for C<wiki_root>, built on first use when
+C<use_git> is set and L<Git::Raw> loads; otherwise undef, and then the history
+tools answer that git history is not available and nothing is committed. An
+object passed to C<new> is used instead; the server calls only
+C<get_section_commits>, C<restore_section> and C<auto_commit> on it, always
+with the page name relative to C<wiki_root>.
+
+=cut
 has git_history => (
     is => 'lazy',
 );
@@ -843,6 +860,15 @@ sub _commit_message_for_event {
     return "$messages{$type}: $page";
 }
 
+=method to_stdio
+
+    $server->to_stdio;
+
+Serves the tools over standard input and output: reads one JSON-RPC request
+per line, answers each in turn and returns when the input ends.
+
+=cut
+
 sub to_stdio {
     my ($self) = @_;
     $self->server->to_stdio;
@@ -869,6 +895,65 @@ __END__
     });
 
     $server->to_stdio;
+
+=head1 TOOLS
+
+The server offers nine tools. A page is named by its path relative to
+C<wiki_root> (see L</PAGE NAMES>), a section by its C<heading_path>: the
+C<#>-joined headings from the top level down to the section, as C<get_toc>
+returns them, for example C<Introduction#Background>. The line numbers
+C<get_toc> reports are only valid for the page as that call read it.
+
+=over 4
+
+=item C<list_pages>
+
+All pages below C<wiki_root>, sorted, and their count.
+
+=item C<get_toc> (C<page>)
+
+Every heading of the page: level, heading, anchor, C<heading_path>, line range,
+a preview of the section and its length in characters.
+
+=item C<get_paragraph> (C<page>, C<heading_path>)
+
+The section's body without its heading line, with heading, C<heading_path> and
+line range. An unknown C<heading_path> is answered with the ones the page has.
+
+=item C<create_page> (C<page>, optional C<content>, C<reason>)
+
+Creates the page and any missing directories. Fails if the page exists; without
+C<content> the page starts as C<# page-name>.
+
+=item C<update_paragraph> (C<page>, C<heading_path>, C<content>, optional C<reason>)
+
+Replaces the section's body; its heading line stays.
+
+=item C<rename_page> (C<from>, C<to>)
+
+Renames or moves a page, creating missing directories. Never replaces an
+existing page.
+
+=item C<delete_page> (C<page>)
+
+Deletes the page.
+
+=item C<get_section_history> (C<page>, C<heading_path>)
+
+The commits that created or changed the section, newest first. Needs
+C<use_git> and L<Git::Raw>.
+
+=item C<restore_section> (C<page>, C<heading_path>, C<commit_hash>, optional C<reason>)
+
+Puts the section's text from that commit back into the page and leaves the rest
+of the page as it is. The restore itself is not committed. Needs C<use_git> and
+L<Git::Raw>.
+
+=back
+
+Every tool that writes calls the L</on_change> handlers afterwards. With
+C<use_git>, every write except a restore is committed, with the C<reason> as
+message when one is given.
 
 =head1 PAGE NAMES
 
