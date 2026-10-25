@@ -1,0 +1,29 @@
+---
+claimed_at: 2026-10-25T07:39:31Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:39:31Z
+created: 2026-10-25T07:03:11Z
+id: 15
+priority: high
+started: 2026-10-25T07:39:31Z
+status: done
+tags:
+- robustness
+title: Writes widen the file mode and ignore read-only pages
+updated: 2026-10-25T07:39:31Z
+---
+
+Evidence: Path::Tiny `spew` writes a temp file and renames it over the page without carrying the mode over (Document.pm:99, Server.pm:555). Under umask 022 a 0600 page becomes 0644 (world-readable) after update_paragraph; a 0444 page is overwritten and becomes 0664.
+
+Fix: after a write the page keeps its previous permission bits; a page the server cannot write (no write permission) is refused with an error and left unchanged.
+
+Tests: 0600 stays 0600 after update_paragraph and after restore_section (stand-in history); 0444 page gives isError, content and mode unchanged (skip as root).
+
+tests: t/24-document-file-mode.t (umask 022; 0600 stays 0600 after update_paragraph and restore_section via stand-in; 0444 page: isError, content and mode unchanged, skipped as root/MSWin32). Red on HEAD: mode widened to 0644 on both writes; 0444 page overwritten (mode changes, isError false) on both.
+
+Done. lib/MCP/Wiki/Document.pm write_text only (update_paragraph and restore_section both write through it): stat the page first; if it exists and -w fails, croak 'Page <name> is read-only: refusing to write it' before anything is touched. Otherwise spew_raw (Path::Tiny's atomic temp+rename, symlink-following kept) under a temporary umask 077, restored right after (also when spew dies), then chmod the page back to its previous mode (& 07777); a page that vanished since the read is written anew with the default mode, as before. Verified: t/24 4/4 green (was 4/4 red); t/20-23, t/35, t/37 green. Scratch (/tmp, removed): umask 022/002/077 x modes 0600/0640/0644/0664/0666/0755/02664 -> mode kept, content right, umask unchanged after, the temp file is 0600 at the moment of the rename (never wider than the page); spew failure in a 0555 dir -> dies, umask restored, page unchanged; symlinked page -> link kept, target written, target mode kept; page removed between read and write -> recreated 0644 under umask 022. prove -lr t/: red only t/39, t/43-t/47 (untracked red-first files of other cards, unchanged); t/42, t/49-t/51 skip. Skill: the mcp-wiki-core Sections bullet on write_text could add 'keeps the page's mode, refuses a read-only page' - not edited (not my lane without a go).
+
+Skill updated (coordinator's go), belongs in k15's commit: .claude/skills/mcp-wiki-core/SKILL.md Sections bullet - write_text keeps the page's permission bits and refuses a read-only page, leaving it as it is.
+
+Committed as 7e74280
