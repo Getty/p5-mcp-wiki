@@ -1,0 +1,30 @@
+---
+claimed_at: 2026-10-25T08:34:17Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T08:34:17Z
+created: 2026-10-25T07:56:32Z
+id: 57
+priority: medium
+started: 2026-10-25T08:15:24Z
+status: done
+tags:
+- git
+- bug
+title: History tools look up the raw client page name
+updated: 2026-10-25T08:34:17Z
+---
+
+Evidence (WA, found during k22, confirmed in scratch): get_section_history and restore_section pass $args->{page} unchanged to History, which looks the page up in each commit tree by that string. "./sub/a.md" or "sub/../sub/a.md" finds 0 commits where "sub/a.md" finds 2; an in-root symlink alias looks up the alias path, not the page it resolves to. Since k22 the events and auto-commit use the canonical name, so history and commits disagree.
+
+Fix: both tools resolve the page (as every tool does) and hand History the canonical name relative to wiki_root (the same _page_name k22 introduced).
+
+Tests: history and restore with "./sub/a.md", "sub/../sub/a.md" and an alias give the same result as "sub/a.md" (opt-in real Git::Raw; plus a stand-in test that History receives the canonical name).
+
+tests: t/55-server-history-page-name.t (stand-in, always runs): History must receive sub/a.md for ./sub/a.md, sub/../sub/a.md, sub//a.md and alias.md, for get_section_history and restore_section - red 8 of 21. t/56-git-history-page-name-real.t (opt-in): history for each spelling equals history for sub/a.md (3 commits), restore via each spelling brings the section back - red 12 of 25.
+
+get_section_history keeps the _resolve_page result and passes History _page_name(path); restore_section passes _page_name($doc->file_path). Tool results still echo the client's page argument (like every tool). Skill line extended. Verified: t/55 21/21 (alias case ran), Git::Raw t/56 25/25 + t/42 t/48 t/49 t/50 t/51 PASS, t/37 t/38 t/36 green; full tree prove -lr t/ PASS; chain HEAD+k16..k29+k57 PASS.
+
+Ready for commit after k29. Patch on top of k29: /tmp/mcp-wiki-k57/k57-on-k29.patch (lib/MCP/Wiki/Server.pm, .claude/skills/mcp-wiki-core/SKILL.md). Tests: t/55-server-history-page-name.t, t/56-git-history-page-name-real.t.
+
+Committed as 50e7122
