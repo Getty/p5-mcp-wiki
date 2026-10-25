@@ -1,0 +1,42 @@
+---
+claimed_at: 2026-10-25T07:00:10Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:00:10Z
+created: 2026-10-25T06:50:43Z
+id: 10
+priority: high
+started: 2026-10-25T07:00:10Z
+status: done
+tags:
+- docs
+title: Refresh docs to the post-k1–k9 state
+updated: 2026-10-25T07:00:10Z
+---
+
+The docs still describe what k1–k9 fixed as open: the three sharp edges (k1/k2/k3), Docker WIP (k7), legacy code (k9). Refresh so they state only what is true now; delete resolved hazards instead of rewording them as history.
+
+Scope:
+- main agent (prose): CLAUDE.md, .claude/rules/mcp-wiki-rules.md (within ~50 lines), .claude/agents/*.md, PLAN.md banner, README.md
+- worker (skill text + POD): .claude/skills/mcp-wiki-core/SKILL.md; POD in Server.pm (commit_reason_required), Document.pm (SYNOPSIS file_path, wiki_root), TOC/Parser.pm (CommonMark remark), TOC/Entry.pm (preview/char_count include the heading line), Git.pm (defect note). Git/History.pm POD is left to the history cards that rewrite that module.
+- release-manager: Changes clauses that contradict the code (README "known defects" clause; "Types::Standard is required").
+
+Done when no doc names a resolved defect as open and prove -lr t/ stays green.
+
+2026-10-25 06:57 Worker part done (skill + POD), uncommitted.
+- .claude/skills/mcp-wiki-core/SKILL.md rewritten to the current code (concept skill, ~165 lines): model paragraph; vocabulary (adds 'body', 'event'); layer map; tool table with arguments and per-tool on_change event keys (rename has from/to, no page); invariants grouped Confinement / Handlers / Addressing / Sections / Parser / Git and change events / Declared-not-built; Docker in one paragraph; Verification with the t/05 t/06 t/07 t/08 t/36 t/37 guards. Resolved sharp edges, legacy-code and Docker-WIP sections deleted; open defects referred to karr in one line. Frontmatter unchanged. Error-handling reason corrected: MCP::Server::handle catches a die -> JSON-RPC -32603 'Internal error' (session survives, model gets an opaque error). Names the eval-require of Git::Raw as the sanctioned exception to getty-perl-core's use-at-top rule.
+- POD: Server.pm commit_reason_required (accepted, no effect); Document.pm SYNOPSIS file_path, file_path/wiki_root attrs (wiki_root not read, no own validation); TOC/Parser.pm DESCRIPTION (line-based ATX, not CommonMark, replacement changes addresses); TOC/Entry.pm content_preview/char_count include the heading line; Git.pm defect note (History auto_commit calls Index->files/get and Repository->create_commit, absent in Git::Raw 0.90 - reproduced against the /tmp throwaway in a temp repo: dies at 'files').
+- Verified: prove -lr t/ -> Files=13, Tests=110, PASS. podchecker: no new findings (only the bundle's =attr/=method directives and the pre-existing L</get_paragraph> link that resolves after the transform).
+Also found (not fixed, for the dispatcher to file on this board):
+1. Handlers that let a die escape (-> -32603 instead of an isError result): get_section_history ($git->get_section_commits unwrapped: 'Not a git repository', 'File not found'), restore_section ($git->restore_section unwrapped: unknown commit/heading), delete_page ($page_path->remove), get_paragraph ($doc->get_paragraph, only if the file vanishes).
+2. t/36 lines 78-79 comment still gives the old reason ('a handler that dies would take the stdio session down') - test-writer lane.
+3. Git::History against real Git::Raw 0.90: Index->files, Index->get, Repository->create_commit and Tree->entry do not exist (entry_bypath does), so auto_commit, get_section_commits and restore die with Git::Raw installed. CI never sees it (no Git::Raw).
+4. _fire_on_change auto-commits $event->{page}: undef for rename (message 'Renamed page: '), a removed file for delete.
+5. create_page reads $args->{reason} but its schema does not declare it (t/06 would need the README row too).
+6. Parser quirks that shape addresses (any fix ADR-grade): '# Using C#' -> heading 'Using C'; heading-shaped lines inside front matter, ~~~ fences or multi-line HTML comments count as headings.
+7. Dockerfile EXPOSE 8080 for a stdio-only server.
+8. House-style drift for the release audit: only lib/MCP/Wiki.pm carries our $VERSION; Server/Document/Entry have no namespace::clean; older modules use 4-space indent and die where getty-perl-core says 2-space and croak (Git.pm already follows the house style).
+
+2026-10-25 06:57 skill + POD refreshed. Files: .claude/skills/mcp-wiki-core/SKILL.md, lib/MCP/Wiki/{Server,Document,Git}.pm, lib/MCP/Wiki/TOC/{Parser,Entry}.pm (POD only, no code). prove -lr t/ PASS (13 files, 110 tests); podchecker no new findings. Findings 1-8 in the note above are for the dispatcher.
+
+Committed as 96dff7f
