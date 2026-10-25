@@ -67,6 +67,12 @@
   - get_paragraph and update_paragraph read the page once and work on that
     snapshot; a write landing in between can no longer make an edit hit the
     wrong section
+  - Pages with CRLF line endings: get_paragraph returns the section with LF
+    line endings, update_paragraph writes the page back with CRLF throughout,
+    and an unchanged round trip stays byte-identical; TOC previews and char
+    counts no longer count the CRs, and an empty "# " heading line no longer
+    yields a heading named by a stray CR. Pages with LF line endings are
+    unchanged.
 
 0.001  2026-04-28
   - Initial release
