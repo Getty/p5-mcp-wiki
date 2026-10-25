@@ -10,7 +10,7 @@
 
 ## Overview
 
-Ein MCP Server der ein Wiki in einem Verzeichnis managed. Pages sind Markdown-Dateien.
+An MCP server that manages a wiki in a directory. Pages are Markdown files.
 
 ## Core Modules
 
