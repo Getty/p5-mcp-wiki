@@ -549,8 +549,10 @@ sub _setup_tools {
                 return $tool->structured_result($result);
             }
 
-            # Apply the restored content
-            eval { $doc->set_paragraph($args->{heading_path}, $result->{content}) };
+            # History already patched the section into the whole document, so
+            # that document replaces the page; the write still goes through
+            # _resolve_page, like every file access of a tool
+            eval { $self->_resolve_page($args->{page})->spew_utf8($result->{content}) };
             if ($@) {
                 return $tool->text_result("Restore failed: $@", 1);
             }

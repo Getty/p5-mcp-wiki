@@ -1,4 +1,7 @@
 {{$NEXT}}
+  - restore_section writes the restored page: the document that the history
+    returns replaces the page file instead of being pushed into a single
+    section, which used to leave the whole page inside one heading.
   - Breaking: a section's text is its body without the heading line, in
     get_paragraph and update_paragraph alike. update_paragraph replaces the
     body only and leaves the heading and the following section untouched

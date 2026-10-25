@@ -56,13 +56,6 @@ line number. Siblings are not part of the chain: with `# Intro`, `## Alpha`,
 
 `reason` becomes the git commit message when `use_git` is on.
 
-### Known defects
-
-These behave as described today; they are tracked, not fixed:
-
-- `restore_section` hands the full restored document to the section write,
-  so a restore does not yield the section as it was (k3).
-
 ## Configuration
 
 - `wiki_root`: Root directory for wiki pages (default: current dir)
