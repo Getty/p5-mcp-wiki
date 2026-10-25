@@ -52,7 +52,8 @@ Skill `mcp-wiki-core`, abgesichert durch `t/36-server-path-security.t`.
 ## Delegation
 
 Behavior-relevanten Code nicht selbst anfassen, sondern an den passenden Agent geben —
-Prinzip und Lane stehen in `.claude/rules/mcp-wiki-rules.md`.
+das Prinzip ist die geteilte Regel `getty-agent-delegation` (skilletor-Bundle
+`getty-cpan-dist@getty`), die Lanes stehen in `.claude/rules/mcp-wiki-rules.md`.
 
 | Aufgabe | Agent |
 |---|---|
