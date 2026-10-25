@@ -1,0 +1,29 @@
+---
+claimed_at: 2026-10-25T07:07:38Z
+claimed_by: mcp-wiki-test-writer
+class: standard
+completed: 2026-10-25T07:07:38Z
+created: 2026-10-25T07:03:07Z
+id: 11
+priority: critical
+started: 2026-10-25T07:07:38Z
+status: done
+tags:
+- packaging
+- tests
+title: 'Shipped dist fails its own tests: t/08 reads README.md, which the tarball
+  lacks'
+updated: 2026-10-25T07:07:38Z
+---
+
+Evidence: `DZIL_DOCKER_API_SKIP=1 dzil build --in /tmp/X`, then `prove -lr t/` inside the built dist: t/08-docker.t line 21 "Error open (<:unix) on 'README.md': No such file or directory". The bundle leaves README.md out of the tarball; t/06 already skips, t/08 does not. `cpanm MCP::Wiki`, `dzil test`/`dzil release` and the Dockerfile's `cpanm ./MCP-Wiki-*.tar.gz` all run these tests.
+
+Fix (main agent's call): keep `prove -lr t/` the canonical command; repo-only checks get a plan-level `skip_all` when the repo files they read are absent (README.md, Dockerfile, docker-entrypoint.sh, dist.ini, .git as applicable). Check every t/ file against a freshly built dist, not only t/08.
+
+Done when: `prove -lr t/` is green in the checkout (guards still run there and can fail) AND inside a fresh `DZIL_DOCKER_API_SKIP=1 dzil build --in /tmp/...` dir. Remove the build dir afterwards.
+
+t/08: README.md assertion now SKIPs (1 test) when README.md absent; rest of t/08 runs in the dist. Fresh DZIL_DOCKER_API_SKIP build: prove -lr t/ green (97 tests). t/06 already plan-skips there (README.md absent) - left as is. Checkout t/08 still 13 tests.
+
+t/08 README check SKIPs in the shipped dist; dist prove -lr green
+
+Committed as ac68307
