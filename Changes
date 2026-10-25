@@ -52,6 +52,9 @@
     file_path; commit_reason_required is documented as having no effect; a
     TOC entry's content_preview and char_count are documented as including
     the heading line
+  - The distribution's own test suite no longer fails during cpanm, dzil test
+    or the Docker build: a Docker test read README.md, which the tarball
+    does not ship
 
 0.001  2026-04-28
   - Initial release

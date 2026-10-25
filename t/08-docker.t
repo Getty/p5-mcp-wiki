@@ -18,7 +18,11 @@ like( $dist_ini, qr/^docker_image\s*=\s*raudssus\/mcp-wiki\s*$/m, 'dist.ini name
 unlike( $dist_ini, qr/^\s*docker_local\b/m, 'dist.ini does not hold the image back from the registry' );
 unlike( $dist_ini, qr/localhost:5000/, 'no second, local registry' );
 ok( !path('maint/release-after.pl')->exists, 'no second release path that builds and pushes on its own' );
-like( path('README.md')->slurp_utf8, qr/\braudssus\/mcp-wiki\b/, 'README documents the same image' );
+SKIP: {
+  # The release tarball does not ship README.md (only README); this check is repo-only.
+  skip 'README.md not shipped in the distribution', 1 unless path('README.md')->is_file;
+  like( path('README.md')->slurp_utf8, qr/\braudssus\/mcp-wiki\b/, 'README documents the same image' );
+}
 
 # -- Dockerfile --------------------------------------------------------------
 unlike( $docker, qr/PERL5LIB/, 'no PERL5LIB pinned to one perl version' );
