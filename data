@@ -1,0 +1,35 @@
+---
+claimed_at: 2026-10-25T07:57:29Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-10-25T07:57:29Z
+created: 2026-10-25T07:03:17Z
+id: 21
+priority: high
+started: 2026-10-25T07:57:29Z
+status: done
+tags:
+- git
+- bug
+title: Renames and deletes are never committed in git mode
+updated: 2026-10-25T07:57:29Z
+---
+
+Depends on: the Git::Raw API card.
+Evidence: the rename event is {type, from, to} without `page`; `_fire_on_change` passes `$event->{page}` (Server.pm:600), i.e. undef. `auto_commit` only does `$index->add` (History.pm:211), which fails for a deleted file; a rename needs remove(from) + add(to). bin/mcp-wiki:34 then warns "uninitialized value".
+
+Fix: with use_git, rename_page commits the removal of `from` and the addition of `to`; delete_page commits the removal. The event payloads stay as they are (no new keys).
+
+Tests: without Git::Raw, a stand-in git_history with use_git=>1 records the auto_commit calls per event type (create, update, rename, delete; none for restore). In the opt-in real-Git::Raw file, rename and delete appear in git log and the work tree is clean afterwards.
+
+tests: t/50-git-rename-delete.t (opt-in real Git::Raw, no stand-in). Plain and non-ASCII (sub/älter.md -> sub/日本/neu.md): rename = exactly one new commit, HEAD has to / lacks from, index tree == HEAD tree, every work-tree file equals its HEAD blob, event keys unchanged; delete likewise. Red on HEAD 12 of 31 (no commits for rename/delete, work tree not in HEAD). Delete of a page below a non-ASCII dir is NOT used: delete_page answers 'Page not found' for sub/日本/neu.md even without git (path resolution with non-ASCII dirs, same family as card 16).
+
+History side done (Server.pm locked until WB's k31 line is committed): auto_commit($path | [\@paths], $message, %opts) stages each path as the work tree has it - exists -> index add, gone -> index remove (no-op if untracked) - then commits as before; scalar callers (MCP::Wiki::Git wrapper, current Server) unchanged; undef/empty path dies 'auto_commit needs a path'. Scratch on real Git::Raw: rename sub/älter.md -> sub/日本/neu.md = one commit, tree has only the new name, status clean; delete = one commit, clean. bin/mcp-wiki on_change warn no longer reads the missing page key of rename events. Next: Server _fire_on_change passes [from, to] for rename, [page] otherwise. SPEC BUG in t/50 (for TA): it calls encode() in in_tree and is_clean but imports only 'decode FB_CROAK' from Encode; inside eval the 'Undefined subroutine &main::encode' is swallowed, so in_tree is always 0 and is_clean compares against undef -> checks 'HEAD has the new name' and 'work tree file X is in HEAD / committed as on disk' cannot pass whatever the code does. Fix: use Encode qw( decode encode FB_CROAK ).
+
+Server: _fire_on_change passes auto_commit an arrayref — [from, to] for rename, [page] otherwise. Skill bullet extended (auto_commit stages present=add / missing=remove; rename commits from+to together, delete commits the removal). Verified: with /tmp Git::Raw t/50 31/31, t/42 31/31, t/49 22/22, none skipped; t/51 4 red = card 25. Plain prove -lr t/: all tracked files green; red only in untracked red-first t/39 t/43-47 t/52 t/53.
+
+Ready for commit. Files: lib/MCP/Wiki/Git/History.pm (auto_commit takes a path or arrayref; add/remove per path by work-tree presence; POD), lib/MCP/Wiki/Server.pm (_fire_on_change rename -> [from,to]), bin/mcp-wiki (debug warn no longer reads undef page on rename; card 22 drops the handler), .claude/skills/mcp-wiki-core/SKILL.md (auto-commit bullet), t/50-git-rename-delete.t, TA's t/42 + t/49 commits() hardening. NOT k21: lib/MCP/Wiki/TOC/Entry.pm + TOC/Parser.pm (lane B, card 18).
+
+Staging: card 25 now shares History.pm/Server.pm/SKILL.md in the tree. k21-only patch: /tmp/mcp-wiki-k25/k21-staging.patch (History, Server, SKILL, bin; git apply --cached --check OK) + TA's t/42/t/49 diffs + t/50. Verified standalone on a HEAD export: t/50/t/42/t/49 with Git::Raw 84/84, plain prove -lr t/ PASS.
+
+Committed as 37c4eb1
