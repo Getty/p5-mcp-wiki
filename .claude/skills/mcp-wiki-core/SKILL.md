@@ -170,7 +170,7 @@ History the same name — it looks the page up in each commit's tree by that str
   tree has it — present means added, missing means removed — so a rename commits `from` and
   `to` together and a delete commits the removal. The commit message is the event's
   `reason` alone when it has visible text, else the generated one (`Updated page: m.md
-  (Intro#Alpha)`).
+  (Intro#Alpha)`, `Renamed page: a.md -> b.md`).
 - `restore_section`: the Server reads the page with `Document::read_for_update` (LF text and
   the page's line ending; a page that is not valid UTF-8 is refused before History is
   asked), hands History the LF text, writes the complete document History returns with

@@ -832,7 +832,10 @@ sub _commit_message_for_event {
         delete  => "Deleted page",
     );
     my $type = $event->{type} // 'unknown';
-    my $page = $event->{page} // '';
+    # A rename names both pages, every other event the one it changed
+    my $page = $type eq 'rename'
+        ? ($event->{from} // '').' -> '.($event->{to} // '')
+        : $event->{page} // '';
     my $heading = $event->{heading_path} // '';
     if ($heading) {
         return "$messages{$type}: $page ($heading)";
