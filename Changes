@@ -1,4 +1,14 @@
 {{$NEXT}}
+  - Docker: one image, raudssus/mcp-wiki on Docker Hub, built and pushed by
+    the dzil bundle at release; the second, separate build-and-push script
+    and the local-only registry setting are gone
+  - Docker: the entrypoint starts mcp-wiki without a shell in between, so a
+    wiki path or any argument containing spaces or quotes arrives intact; it
+    runs as the owner of the mounted wiki
+  - Docker: the image no longer pins PERL5LIB to one perl version, and
+    building it no longer tries to build an image from inside the image
+  - bin/mcp-wiki starts with "#!/usr/bin/env perl"; installs rewrite it to the
+    installing perl as before
   - restore_section writes the restored page: the document that the history
     returns replaces the page file instead of being pushed into a single
     section, which used to leave the whole page inside one heading.

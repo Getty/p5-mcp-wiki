@@ -21,9 +21,10 @@ RUN cpanm --installdeps --cpanfile cpanfile --notest
 
 COPY . .
 
-# Build with dzil and install the tarball
+# Build with dzil and install the tarball. The bundle also wires the image
+# build into dzil; inside the image there is no docker to build with.
 RUN cpanm --notest Dist::Zilla Dist::Zilla::PluginBundle::Author::GETTY Dist::Zilla::Plugin::Docker::API && \
-    dzil build && cpanm ./MCP-Wiki-*.tar.gz && rm -f ./MCP-Wiki-*.tar.gz
+    DZIL_DOCKER_API_SKIP=1 dzil build && cpanm ./MCP-Wiki-*.tar.gz && rm -f ./MCP-Wiki-*.tar.gz
 
 # Runtime stage
 FROM perl:${PERL_VERSION}
@@ -49,7 +50,6 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 RUN mkdir -p /wiki && chown -R appuser:appgroup /wiki
 
-ENV PERL5LIB=/usr/local/lib/perl5/site_perl/5.40.3:/usr/local/lib/perl5/site_perl/5.40.3/x86_64-linux-gnu
 ENV MCP_WIKI_ROOT=/wiki
 
 EXPOSE 8080
