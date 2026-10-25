@@ -2,6 +2,9 @@ use strict;
 use warnings;
 use utf8;
 use Test::More;
+
+# test names contain non-ASCII characters
+binmode $_, ':encoding(UTF-8)' for map { Test::More->builder->$_ } qw( output failure_output todo_output );
 use Path::Tiny qw( tempdir );
 
 # Hermetic: no user git config, no global identity. libgit2 reads its config

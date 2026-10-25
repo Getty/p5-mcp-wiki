@@ -71,8 +71,12 @@ in-root symlink → its target); auto-commit stages those names.
   `/wiki`. It refuses any `.git` component (any case, in the name and in the resolved
   path), the root itself, and any resolved basename not ending in `.md` (any case). A tool
   that builds a path itself reopens the hole.
+- Names are characters, the filesystem is bytes: `_resolve_page` walks the UTF-8 encoding
+  of the name and returns a byte path, like the root and everything `realpath` and
+  `readdir` give back — mixing the two re-encodes a name into a different file. Names
+  going out (`list_pages`, `_page_name`) are decoded; History encodes before touching disk.
 - `list_pages` lists exactly the names `_resolve_page` accepts; it enters neither `.git`
-  nor directory symlinks.
+  nor directory symlinks, and skips a name that is not valid UTF-8 with a `warn`.
 - `wiki_root` defaults to `.`: the server writes into the directory it was started from.
   Exercise writing tools only against a `Path::Tiny` tempdir.
 - Register tools through `_add_tool`, never `$self->server->tool` directly: the wrapper

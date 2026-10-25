@@ -114,7 +114,8 @@ sub get_section_commits {
     my ($self, $page, $heading_path) = @_;
 
     my $repo = $self->repo;
-    my $page_path = Path::Tiny::path($self->wiki_root)->child($page);
+    # On disk the name is bytes, like the root
+    my $page_path = Path::Tiny::path($self->wiki_root)->child(encode('UTF-8', $page));
 
     die "File not found: $page" unless -e $page_path;
 
@@ -304,7 +305,7 @@ sub auto_commit {
     my $root = Path::Tiny::path($self->wiki_root);
     for my $path (ref $paths eq 'ARRAY' ? @$paths : $paths) {
         die "auto_commit needs a path" unless defined $path && length $path;
-        my $file = $root->child($path);
+        my $file = $root->child(encode('UTF-8', $path));
         if (-e $file || -l $file) {
             $index->add(encode('UTF-8', $path));
         }

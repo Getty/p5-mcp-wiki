@@ -105,6 +105,10 @@
     in-root symlink, so auto-commit stages the right file; each handler gets
     its own copy of the event. bin/mcp-wiki no longer installs a debug
     handler that warned on every change.
+  - Pages and directories with non-ASCII names work in every tool: list_pages
+    returns them as text instead of double-encoded, pages below a non-ASCII
+    directory are found again, error messages name them correctly, and names
+    that are not valid UTF-8 are skipped with a warning.
 
 0.001  2026-04-28
   - Initial release

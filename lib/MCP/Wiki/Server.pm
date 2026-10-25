@@ -8,6 +8,7 @@ use MCP::Server;
 use MCP::Wiki::Document;
 use Path::Tiny;
 use Carp qw( croak );
+use Encode qw( decode encode );
 use feature 'signatures';
 no warnings 'experimental::signatures';
 
@@ -106,6 +107,10 @@ sub _is_git_dir_name {
 # command. And nothing but ".md" files, which keeps every other file in the
 # directory out of reach. ".git" is looked for in the name and in the resolved
 # path, the extension in the resolved path: that is the file a call acts on.
+#
+# The name is a character string; on disk it is its UTF-8 encoding. The walk
+# and the returned path are bytes, like the root and every name realpath gives
+# back: mixed with characters they would be re-encoded into a different name.
 sub _resolve_page {
     my ($self, $page) = @_;
 
@@ -114,7 +119,7 @@ sub _resolve_page {
 
     my $root = $self->_wiki_root_path;
     my $path = $root;
-    for my $part (split m{/+}, $page) {
+    for my $part (split m{/+}, encode('UTF-8', $page)) {
         next if $part eq '' || $part eq '.';
         $path = $part eq '..' ? $path->parent : $path->child($part);
         if (-l $path || -e $path) {
@@ -142,14 +147,15 @@ sub _resolve_page {
 # list_pages shows. Events carry this, whatever spelling the client used.
 sub _page_name {
     my ($self, $path) = @_;
-    return Path::Tiny::path($path)->relative($self->_wiki_root_path)->stringify;
+    return decode('UTF-8', Path::Tiny::path($path)->relative($self->_wiki_root_path)->stringify);
 }
 
 # All pages below the root, as sorted names relative to it. A page is listed
 # only if _resolve_page accepts its name, so the list never offers something
 # the other tools refuse: no symlink leading out of the root, into ".git" or to
 # a file that is no page. ".git" is not entered, and neither are directory
-# symlinks.
+# symlinks. Directory entries are bytes: a name is listed decoded from UTF-8,
+# one that is not valid UTF-8 cannot be sent back and is skipped with a warning.
 sub _list_pages {
     my ($self) = @_;
 
@@ -164,7 +170,12 @@ sub _list_pages {
                 next;
             }
             next unless $child->basename =~ /\.md\z/i;
-            my $rel = $child->relative($root)->stringify;
+            my $bytes = $child->relative($root)->stringify;
+            my $rel = eval { decode('UTF-8', $bytes, Encode::FB_CROAK | Encode::LEAVE_SRC) };
+            unless (defined $rel) {
+                warn "list_pages: skipping $bytes: the name is not valid UTF-8\n";
+                next;
+            }
             push @pages, $rel if eval { $self->_resolve_page($rel)->is_file };
         }
     }
@@ -748,6 +759,10 @@ a wiki with git history is therefore out of reach of the tools.
 
 C<list_pages> returns exactly the names the other tools accept. It does not
 enter C<.git> or directories that are symlinks.
+
+Page names are text; on disk a name is its UTF-8 encoding, so names and
+directories in any script work in every tool. A file whose name is not valid
+UTF-8 cannot be named by a client: C<list_pages> leaves it out and warns.
 
 The tools take no C<root_dir> argument. A call that passes one is answered with
 an error and changes nothing. To serve a different directory, start a server

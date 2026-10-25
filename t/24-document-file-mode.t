@@ -1,7 +1,22 @@
 use strict;
 use warnings;
+use utf8;
 use Test::More;
+use Encode ();
 use Path::Tiny qw( tempdir );
+
+binmode $_, ':encoding(UTF-8)' for Test::More->builder->output, Test::More->builder->failure_output, Test::More->builder->todo_output;
+
+# chmod can be made to fail on demand; this has to be in place before Document
+# is compiled. Without the switch it is plain chmod.
+our $FAIL_CHMOD = 0;
+BEGIN {
+  no warnings 'once';
+  *CORE::GLOBAL::chmod = sub {
+    if ($main::FAIL_CHMOD) { $! = 1; return 0 }
+    return CORE::chmod( shift, @_ );
+  };
+}
 use MCP::Wiki::Server;
 
 # A write keeps the page's permission bits; a page without write permission is
@@ -58,7 +73,7 @@ subtest 'restore_section keeps a 0600 page 0600' => sub {
 };
 
 SKIP: {
-  skip "root can write to a 0444 page", 2 if $> == 0;
+  skip "root can write to a 0444 page", 3 if $> == 0;
 
   subtest 'update_paragraph refuses a read-only page' => sub {
     my $page = $wiki->child('ro.md');
@@ -82,6 +97,38 @@ SKIP: {
     is( $page->slurp_utf8, $TEXT, 'content unchanged' );
     is( mode_of("$page"), '0444', 'mode unchanged' );
   };
+  subtest 'the refusal names a page below a non-ASCII directory as text' => sub {
+    for my $name ( 'ö/ro.md', '日本/ro.md' ) {
+      my $page = $wiki->child( Encode::encode( 'UTF-8', $name ) );
+      $page->parent->mkpath;
+      $page->spew_utf8($TEXT);
+      chmod 0444, "$page";
+      my $res = call_tool( 'update_paragraph',
+        { page => $name, heading_path => 'Top#Alpha', content => 'edited' } );
+      ok( $res->{isError}, "$name: isError" );
+      my $text = $res->{content}[0]{text};
+      like( $text, qr/\Q$name\E/, "$name: the page is named as characters" );
+      unlike( $text, qr/\x{C3}[\x{80}-\x{BF}]|\x{E6}\x{97}/, "$name: nothing double-encoded" );
+      is( $page->slurp_utf8, $TEXT, "$name: content unchanged" );
+    }
+  };
 }
+
+subtest 'a mode that cannot be restored names the page as text' => sub {
+  for my $name ( 'ö/cm.md', '日本/cm.md' ) {
+    my $page = $wiki->child( Encode::encode( 'UTF-8', $name ) );
+    $page->parent->mkpath;
+    $page->spew_utf8($TEXT);
+    chmod 0600, "$page";
+    local $FAIL_CHMOD = 1;
+    my $res = call_tool( 'update_paragraph',
+      { page => $name, heading_path => 'Top#Alpha', content => 'edited' } );
+    ok( $res->{isError}, "$name: isError" );
+    my $text = $res->{content}[0]{text};
+    like( $text, qr/mode could not be restored/, "$name: says what failed" );
+    like( $text, qr/\Q$name\E/, "$name: the page is named as characters" );
+    unlike( $text, qr/\x{C3}[\x{80}-\x{BF}]|\x{E6}\x{97}/, "$name: nothing double-encoded" );
+  }
+};
 
 done_testing;

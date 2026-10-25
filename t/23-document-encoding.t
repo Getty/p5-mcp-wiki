@@ -6,6 +6,8 @@ use Path::Tiny qw( tempdir );
 use Encode ();
 use MCP::Wiki::Server;
 
+binmode $_, ':encoding(UTF-8)' for Test::More->builder->output, Test::More->builder->failure_output, Test::More->builder->todo_output;
+
 # Reads decode leniently, so a page that is not valid UTF-8 can be read. Writing
 # it back would replace every non-ASCII byte with U+FFFD: writes to such a page
 # are refused and the file stays byte-identical.
@@ -92,6 +94,23 @@ subtest 'a valid UTF-8 page still round-trips and edits' => sub {
   is( $page->slurp_raw,
     Encode::encode( 'UTF-8', "# Tïtle\nüber\n## 日本語\nneu ü 😀\n## Last\nend\n" ),
     'only the target section changed' );
+};
+
+subtest 'the refusal names a page below a non-ASCII directory as text' => sub {
+  for my $name ( 'ö/latin1.md', '日本/latin1.md' ) {
+    # names on disk are bytes
+    my $file = $wiki->child( Encode::encode( 'UTF-8', $name ) );
+    $file->parent->mkpath;
+    $file->spew_raw($LATIN1);
+    my $res = call_tool( 'update_paragraph',
+      { page => $name, heading_path => 'Top#Other', content => 'changed' } );
+    ok( $res->{isError}, "$name: isError" );
+    my $text = $res->{content}[0]{text};
+    like( $text, qr/UTF-8/i, "$name: says why" );
+    like( $text, qr/\Q$name\E/, "$name: the page is named as characters" );
+    unlike( $text, qr/[\x{C3}\x{E6}]\x{97}|\x{C3}\x{B6}|\x{C3}\x{83}/, "$name: nothing double-encoded" );
+    is( $file->slurp_raw, $LATIN1, "$name: file is byte-identical" );
+  }
 };
 
 done_testing;

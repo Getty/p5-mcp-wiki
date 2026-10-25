@@ -212,10 +212,14 @@ sub _slurp {
     return (Encode::decode('UTF-8', $bytes, Encode::FB_DEFAULT | Encode::LEAVE_SRC), 0);
 }
 
-# The page as the wiki names it, for error messages
+# The page as the wiki names it, for error messages. The Server hands in the
+# path as on disk, in bytes; utf8::decode turns a name that is valid UTF-8 into
+# text and leaves any other one as it is, a name given as text included.
 sub _page_name {
     my ($self) = @_;
-    return Path::Tiny::path($self->file_path)->relative($self->wiki_root)->stringify;
+    my $name = Path::Tiny::path($self->file_path)->relative($self->wiki_root)->stringify;
+    utf8::decode($name);
+    return $name;
 }
 
 # The entry's line range is only valid for the text it was parsed from:
