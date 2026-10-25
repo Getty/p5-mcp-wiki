@@ -123,6 +123,8 @@
     version instead of 1.0.0.
   - create_page and rename_page no longer replace a page that appeared
     between their existence check and the write.
+  - get_section_history and restore_section find a page's history whatever
+    spelling the client uses (./a.md, sub/../a.md, an in-root symlink).
 
 0.001  2026-04-28
   - Initial release

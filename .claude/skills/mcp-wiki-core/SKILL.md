@@ -63,7 +63,8 @@ with an example (t/46 checks the keywords).
 
 `reason` may be `undef`. `page`, `from` and `to` are `_page_name` of the resolved path: relative
 to the root as `list_pages` shows it, never the client's spelling (`x/../a.md` → `a.md`, an
-in-root symlink → its target); auto-commit stages those names.
+in-root symlink → its target); auto-commit stages those names, and the history tools hand
+History the same name — it looks the page up in each commit's tree by that string.
 
 ## Invariants
 

@@ -664,10 +664,14 @@ sub _setup_tools {
                 return $tool->text_result("Git history not available (git may not be enabled)", 1);
             }
 
-            eval { $self->_resolve_page($args->{page}); 1 }
+            my $page_path = eval { $self->_resolve_page($args->{page}) }
                 or return $tool->text_result("Invalid page: $@", 1);
 
-            my @commits = eval { $git->get_section_commits($args->{page}, $args->{heading_path}) };
+            # History finds the page in each commit's tree by its canonical
+            # name, the one auto-commit stages
+            my @commits = eval {
+                $git->get_section_commits($self->_page_name($page_path), $args->{heading_path});
+            };
             if ($@) {
                 return $tool->text_result("Cannot read section history: $@", 1);
             }
@@ -725,7 +729,7 @@ sub _setup_tools {
             my $result = eval {
                 (my $current_content, $eol) = $doc->read_for_update;
                 $git->restore_section(
-                    $args->{page},
+                    $self->_page_name($doc->file_path),
                     $args->{heading_path},
                     $args->{commit_hash},
                     { current_content => $current_content }
