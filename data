@@ -1,0 +1,32 @@
+---
+claimed_at: 2026-10-26T20:10:26Z
+claimed_by: kopf
+class: standard
+completed: 2026-10-26T20:10:26Z
+created: 2026-10-25T07:03:30Z
+id: 34
+priority: high
+started: 2026-10-26T20:07:42Z
+status: done
+tags:
+- proposal
+- parser
+- heading_path
+title: 'Proposal: parser treats lines inside ~~~/long/indented fences, front matter
+  and HTML comments as headings'
+updated: 2026-10-26T20:10:26Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: a `~~~` fence containing "# not a heading" becomes a section and the real "## Child" gets the address "not a heading#Child"; update_paragraph on it removed the closing `~~~`, so the rest of the page renders as code. A four-backtick fence with an inner ``` creates sections. An indented ``` toggles fence state (Parser.pm:157 runs before the indent skip at :164) and hides later headings; a line starting "```inline```" toggles too. A "# yaml comment" in front matter becomes an H1 section; updating it removed the closing `---`. Headings inside HTML comments count. Setext and 1-3-space-indented ATX headings are not recognised.
+
+Why a proposal: fixing it changes which lines are headings, hence existing heading_paths.
+Options: (a) CommonMark fence rules in the line parser (``` and ~~~, closing fence of the same char and at least as long, opener indented at most 3, no backticks in a backtick info string) plus skipping a leading front-matter block; (b) replace the parser with one that reports source positions (e.g. cmark XS, a C dependency for CPAN and Docker); (c) keep the parser, document the gaps, refuse update_paragraph on a section whose body has an unbalanced fence.
+Recommendation: (a), in one heading-recognition ADR together with the other parser cards; document setext and HTML comments as unsupported; announce as Breaking in Changes.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a): CommonMark fences (``` and ~~~, indent <= 3, closer same char and at least as long, no backtick in a backtick info string), 4-space indented code is never a heading or fence, leading front matter and HTML comment blocks skipped, 1-3-space ATX headings recognised, setext documented as unsupported. Breaking. Branch kopf.
+
+Done in 3a9ac2c (with k38). Decisions of mine: a heading without text after stripping the closing run is not a heading (as before for a bare #); tab-indented lines are not specially treated (a heading needs spaces only).
+
+Also found: none.
