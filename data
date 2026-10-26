@@ -1,0 +1,24 @@
+---
+claimed_at: 2026-10-26T20:26:55Z
+claimed_by: docker
+class: standard
+completed: 2026-10-26T20:26:55Z
+created: 2026-10-25T07:03:47Z
+id: 51
+priority: medium
+started: 2026-10-26T19:54:07Z
+status: done
+tags:
+- proposal
+- docker
+title: 'Proposal: Docker - extra arguments move the wiki into the container'
+updated: 2026-10-26T20:26:55Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: arguments replace CMD (`--wiki-root /wiki`), and mcp-wiki defaults to '.', which is WORKDIR /home/appuser (Dockerfile:41, :58; bin/mcp-wiki:11). MCP_WIKI_ROOT is read only by the entrypoint. `docker run -i -v ...:/wiki raudssus/mcp-wiki --git` serves /home/appuser; with --rm all writes are lost. The entrypoint stats and chowns /wiki even when --wiki-root points elsewhere. (README now tells users to repeat --wiki-root.)
+Options: (a) WORKDIR /wiki so the default '.' is the volume, and the entrypoint takes the owner from the effective --wiki-root; (b) mcp-wiki defaults to $ENV{MCP_WIKI_ROOT} when set (new CLI behaviour); (c) document only (done in README).
+Recommendation: (a).
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a): WORKDIR /wiki; the entrypoint checks the effective --wiki-root. Branch docker.
