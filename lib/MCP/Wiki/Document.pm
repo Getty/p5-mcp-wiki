@@ -131,7 +131,10 @@ section untouched. Takes what L</get_paragraph> returns as C<content>, so the
 two are inverse. On a CRLF page the whole page is written back with CRLF line
 endings, whichever line endings C<$new_body> uses. Dies, leaving the file
 untouched, when the heading does not exist or the page is not valid UTF-8
-(see L</read_for_update>).
+(see L</read_for_update>), and when C<$new_body> would change the structure of
+the page: it holds a heading line, or leaves a code fence or an HTML comment
+open (see L<MCP::Wiki::TOC::Parser/body_problem>; a heading inside a closed
+fence is fine). Sections are added with L</add_section> instead.
 
 With C<expected_hash>, the C<hash> an earlier L</get_paragraph> or L</get_toc>
 showed for the section, it also dies when the section is not as it was then
@@ -143,6 +146,7 @@ Returns the new hash of the section.
 sub set_paragraph {
     my ($self, $heading_path, $new_content, %opt) = @_;
     $self->_valid_expected_hash($opt{expected_hash});
+    $self->_check_body($new_content =~ s/\r\n/\n/gr, front_matter => $heading_path eq '');
     my ($text, $eol, $bytes) = $self->_snapshot_for_update;
 
     my $at = $self->_locate($text, $heading_path)

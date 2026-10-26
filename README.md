@@ -71,7 +71,7 @@ chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
 | `get_paragraph` | `page`, `heading_path` | | Get the body of the section under a heading path (heading line not included) and its `hash` |
 | `get_page` | `page` | | Get the whole text of a page and its `hash`, e.g. a page without headings |
 | `create_page` | `page` | `content`, `reason` | Create a new wiki page; fails if it exists, default content `# <name>`, the file name without `.md` |
-| `update_paragraph` | `page`, `heading_path`, `content` | `reason`, `expected_hash` | Replace a section's body; the heading line stays; refused if the section no longer has the `hash` in `expected_hash` |
+| `update_paragraph` | `page`, `heading_path`, `content` | `reason`, `expected_hash` | Replace a section's body; the heading line stays; a content with a heading line is refused; refused if the section no longer has the `hash` in `expected_hash` |
 | `write_page` | `page`, `content` | `reason`, `expected_hash` | Replace the whole text of an existing page; refused if the page no longer has the `hash` in `expected_hash` |
 | `add_section` | `page`, `heading` | `parent`, `before`, `content`, `reason` | Add a section as the last child of `parent` (`""` or none: top level), or in front of its child `before`; the level is the parent's plus one; answers with the new `heading_path` |
 | `delete_section` | `page`, `heading_path` | `reason`, `expected_hash` | Delete a section with its body and subsections |
@@ -95,6 +95,11 @@ included, subsections not. Passing it back as `expected_hash` makes a write
 fail with "changed since read", and write nothing, when someone else changed
 the section in between; without it a write is unconditional. It is a check,
 not a lock.
+
+`update_paragraph` replaces a body and nothing else: content with a heading line
+(outside a closed code fence or HTML comment) or one that leaves a code fence
+or comment open is refused, because it would re-parent or swallow the sections
+after it.
 
 Sections are added with `add_section`, removed with `delete_section` (heading,
 body and subsections) and renamed with `rename_heading`; `write_page` replaces

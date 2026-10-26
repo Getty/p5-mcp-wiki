@@ -158,6 +158,11 @@ History the same name — it looks the page up in each commit's tree by that str
   refused), levels never go past 6 and a `before` sibling must not be deeper than the new level.
   `delete_section` takes the whole subtree; its hash is the section's alone. `search_pages`
   walks `_list_pages($prefix)` and re-resolves every page; plain substring, case-insensitive.
+- A body is checked before it is written (`Document::_check_body`, `Parser::body_problem`, run
+  on the body alone, as outside of everything; the preamble also with front matter): a heading
+  line outside a closed fence/comment, or a fence/comment left open, is refused by
+  `set_paragraph` and `add_section`. Pointing at `add_section` is part of the message.
+  `restore_section` is not checked: it puts back History's text.
 - `get_paragraph` returns the body; `set_paragraph`/`update_paragraph` replace exactly the
   body and keep the heading. get followed by set writes the file back byte-identical.
 - Lines before the first heading are the **preamble**, addressed by the heading_path `""`

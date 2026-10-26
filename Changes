@@ -1,4 +1,9 @@
 {{$NEXT}}
+  - Breaking: update_paragraph refuses content that changes the structure of
+    the page: a heading line (a deeper one used to be the only way to make a
+    subsection), a code fence or an HTML comment left open. Before, "# X"
+    in a body re-parented the sections after it and an unclosed fence hid
+    them. Sections are added with the new add_section.
   - New tools to change a page's structure: add_section (below a parent or
     in front of a sibling, answers with the new heading_path),
     delete_section, rename_heading and write_page (replaces a whole existing

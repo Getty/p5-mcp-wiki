@@ -733,7 +733,9 @@ sub _setup_tools {
         name        => 'update_paragraph',
         description => 'Replace the body of a section (its heading line stays) by heading path.'
             .' With expected_hash, the hash get_toc or get_paragraph showed for the section,'
-            .' the change is refused if the section changed since you read it.',
+            .' the change is refused if the section changed since you read it. The content may'
+            .' not contain a heading line (outside a closed code fence) or leave a code fence'
+            .' open: add sections with add_section, rename headings with rename_heading.',
         annotations => $self->_annotations(destructive => 1, idempotent => 1),
         input_schema => {
             type => 'object',
@@ -748,7 +750,7 @@ sub _setup_tools {
                 },
                 content => {
                     type => 'string',
-                    description => 'New body for the section, without the heading line',
+                    description => 'New body for the section, without the heading line. It may not contain a heading line (a line starting with #, outside a closed code fence) and may not leave a code fence or HTML comment open; use add_section for new sections',
                 },
                 reason => {
                     type => 'string',
@@ -1477,7 +1479,10 @@ stay.
 
 =item C<update_paragraph> (C<page>, C<heading_path>, C<content>, optional C<reason>, C<expected_hash>)
 
-Replaces the section's body; its heading line stays. With C<expected_hash> the
+Replaces the section's body; its heading line stays. The content may not
+change the structure of the page: a heading line in it (outside a closed code
+fence or comment), or a code fence or HTML comment it leaves open, makes the
+call fail, writing nothing; the message points to C<add_section>. With C<expected_hash> the
 write is refused, and nothing is written, when the section is not the one the
 hash was taken from. The answer carries the section's new C<hash>.
 
