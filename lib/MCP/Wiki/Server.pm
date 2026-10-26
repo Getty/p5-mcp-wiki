@@ -14,8 +14,7 @@ use Encode qw( decode encode );
 use Fcntl qw( O_WRONLY O_CREAT O_EXCL );
 use JSON::PP ();
 use MCP::Wiki;
-use feature 'signatures';
-no warnings 'experimental::signatures';
+use namespace::clean;
 
 =attr wiki_root
 
@@ -357,7 +356,8 @@ sub _add_tool {
 
     return $self->server->tool(
         %spec,
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             return $tool->text_result(
                 'root_dir is not supported: the wiki root is fixed when the server starts', 1
             ) if ref $args eq 'HASH' && exists $args->{root_dir};
@@ -459,7 +459,8 @@ sub _setup_tools {
                 },
             },
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $pages = eval { $self->_list_pages($args->{prefix}) }
                 or return $tool->text_result("Cannot list pages: $@", 1);
 
@@ -498,7 +499,8 @@ sub _setup_tools {
             },
             required => ['query'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $query = $args->{query};
             return $tool->text_result('Invalid query: a non-empty string without line breaks', 1)
                 unless defined $query && !ref $query && length $query && $query !~ /[\r\n]/;
@@ -572,7 +574,8 @@ sub _setup_tools {
             },
             required => ['page'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $max_level = $args->{max_level};
             return $tool->text_result('Invalid max_level: an integer from 1 to 6', 1)
                 if defined $max_level && (ref $max_level || $max_level !~ /\A[1-6]\z/);
@@ -620,7 +623,8 @@ sub _setup_tools {
             },
             required => ['page', 'heading_path'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $doc = eval { $self->_create_document($args->{page}) };
             if ($@) {
                 return $tool->text_result("Invalid page: $@", 1);
@@ -657,7 +661,8 @@ sub _setup_tools {
             },
             required => ['page'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $doc = eval { $self->_create_document($args->{page}) };
             if ($@) {
                 return $tool->text_result("Invalid page: $@", 1);
@@ -701,7 +706,8 @@ sub _setup_tools {
             },
             required => ['page'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $page_path = eval { $self->_resolve_page($args->{page}) }
                 or return $tool->text_result("Invalid page path: $@", 1);
 
@@ -765,7 +771,8 @@ sub _setup_tools {
             },
             required => ['page', 'heading_path', 'content'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $doc = eval { $self->_create_document($args->{page}) };
             if ($@) {
                 return $tool->text_result("Invalid page: $@", 1);
@@ -827,7 +834,8 @@ sub _setup_tools {
             },
             required => ['page', 'content'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $doc = eval { $self->_create_document($args->{page}) };
             if ($@) {
                 return $tool->text_result("Invalid page: $@", 1);
@@ -894,7 +902,8 @@ sub _setup_tools {
             },
             required => ['page', 'heading'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $doc = eval { $self->_create_document($args->{page}) };
             if ($@) {
                 return $tool->text_result("Invalid page: $@", 1);
@@ -961,7 +970,8 @@ sub _setup_tools {
             },
             required => ['page', 'heading_path'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $doc = eval { $self->_create_document($args->{page}) };
             if ($@) {
                 return $tool->text_result("Invalid page: $@", 1);
@@ -1027,7 +1037,8 @@ sub _setup_tools {
             },
             required => ['page', 'heading_path', 'heading'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $doc = eval { $self->_create_document($args->{page}) };
             if ($@) {
                 return $tool->text_result("Invalid page: $@", 1);
@@ -1085,7 +1096,8 @@ sub _setup_tools {
             },
             required => ['from', 'to'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $from_path = eval { $self->_resolve_page_not_link($args->{from}) }
                 or return $tool->text_result("Invalid path: $@", 1);
             my $to_path = eval { $self->_resolve_page_not_link($args->{to}) }
@@ -1141,7 +1153,8 @@ sub _setup_tools {
             },
             required => ['page'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $page_path = eval { $self->_resolve_page_not_link($args->{page}) }
                 or return $tool->text_result("Invalid path: $@", 1);
 
@@ -1184,7 +1197,8 @@ sub _setup_tools {
             },
             required => ['page', 'heading_path'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $git = $self->git_history;
             unless ($git) {
                 return $tool->text_result("Git history not available (git may not be enabled)", 1);
@@ -1239,7 +1253,8 @@ sub _setup_tools {
             },
             required => ['page', 'heading_path', 'commit_hash'],
         },
-        code => sub ($tool, $args) {
+        code => sub {
+            my ($tool, $args) = @_;
             my $git = $self->git_history;
             unless ($git) {
                 return $tool->text_result("Git history not available (git may not be enabled)", 1);
@@ -1300,7 +1315,7 @@ sub _build_server {
 
 =method on_change
 
-    $server->on_change(sub ($event) { ... });
+    $server->on_change(sub { my ($event) = @_; ... });
 
 Registers a handler, called after a writing tool changed a page. Every handler
 gets a hash reference of its own: C<type> (C<create>, C<update>, C<write>,

@@ -1,4 +1,8 @@
 {{$NEXT}}
+  - Internal tidy-up without a change in behaviour: errors of the caller are
+    raised with croak, the TOC parser is loaded at compile time, every Moo
+    class cleans its namespace, and the server no longer needs the
+    signatures feature.
   - Every module and bin/mcp-wiki carries its own version, 0.002, the next
     release after the published 0.001.
   - Breaking: update_paragraph refuses content that changes the structure of

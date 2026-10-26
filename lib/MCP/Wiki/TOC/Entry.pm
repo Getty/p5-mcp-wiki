@@ -4,6 +4,7 @@ package MCP::Wiki::TOC::Entry;
 our $VERSION = '0.002';
 
 use Moo;
+use namespace::clean;
 
 =attr level
 

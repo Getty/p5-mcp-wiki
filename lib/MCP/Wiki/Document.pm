@@ -12,6 +12,7 @@ use Encode ();
 use Path::Tiny;
 use MCP::Wiki::TOC::Entry;
 use MCP::Wiki::TOC::Parser;
+use namespace::clean;
 
 =attr file_path
 
@@ -152,7 +153,7 @@ sub set_paragraph {
     my ($text, $eol, $bytes) = $self->_snapshot_for_update;
 
     my $at = $self->_locate($text, $heading_path)
-        or die "Heading not found: $heading_path";
+        or croak "Heading not found: $heading_path";
     $self->_check_expected_hash($opt{expected_hash},
         $self->_range_hash($self->_raw_lines($bytes), $at->{line_start}, $at->{line_end}),
         $heading_path eq '' ? 'The text before the first heading' : "Section $heading_path");
@@ -246,9 +247,9 @@ sub add_section {
 
     my ($parent, $level);
     if (length $parent_path) {
-        $parent = $by_path{$parent_path} or die "Heading not found: $parent_path";
+        $parent = $by_path{$parent_path} or croak "Heading not found: $parent_path";
         $level  = $parent->level + 1;
-        die "Cannot add a section below '$parent_path': it is level 6 and there is no level 7\n"
+        croak "Cannot add a section below '$parent_path': it is level 6 and there is no level 7\n"
             if $level > 6;
     }
     else {
@@ -268,10 +269,10 @@ sub add_section {
     $pos-- while $pos > 0 && $lines[$pos - 1] !~ /\S/;
 
     if (defined $before) {
-        my $sibling = $by_path{$before} or die "Heading not found: $before";
-        die "Cannot insert before '$before': it is no direct child of $where\n"
+        my $sibling = $by_path{$before} or croak "Heading not found: $before";
+        croak "Cannot insert before '$before': it is no direct child of $where\n"
             unless $self->_is_child($parent_path, $before);
-        die "Cannot insert a level $level heading before '$before': that is level "
+        croak "Cannot insert a level $level heading before '$before': that is level "
             .$sibling->level.", so it would become a child of the new section and change its"
             ." address\n" if $level < $sibling->level;
         $pos = $sibling->line_start - 1;
@@ -294,11 +295,11 @@ sub add_section {
     # leave every other address alone
     my @now = MCP::Wiki::TOC::Parser->parse_content($new_text);
     my ($added) = grep { $_->line_start == $pos + 1 } @now;
-    die "The heading '$heading' would not be read as a heading of level $level at that place"
+    croak "The heading '$heading' would not be read as a heading of level $level at that place"
         ." (it lies inside a code block, comment or front matter, or is not valid heading text)\n"
         unless $added && $added->heading eq $heading && $added->level == $level;
     my @others = grep { $_ != $added } @now;
-    die "Adding '$heading' there would change the address of an existing section"
+    croak "Adding '$heading' there would change the address of an existing section"
         ." (a section of the same name comes after it); add it at the end of '$parent_path'"
         ." or give it another name\n"
         unless @others == @entries
@@ -328,13 +329,13 @@ the C<heading_path>s that are gone, the section's first.
 sub delete_section {
     my ($self, $heading_path, %opt) = @_;
     $self->_valid_expected_hash($opt{expected_hash});
-    die "The preamble (the text before the first heading) is no section and has no heading"
+    croak "The preamble (the text before the first heading) is no section and has no heading"
         ." to delete; empty it with update_paragraph\n" if $heading_path eq '';
 
     my ($text, $eol, $bytes) = $self->_snapshot_for_update;
     my @entries = MCP::Wiki::TOC::Parser->parse_content($text);
     my ($i) = grep { $entries[$_]->heading_path eq $heading_path } 0 .. $#entries;
-    die "Heading not found: $heading_path" unless defined $i;
+    croak "Heading not found: $heading_path" unless defined $i;
     my $entry = $entries[$i];
     $self->_check_expected_hash($opt{expected_hash},
         $self->_section_hash($self->_raw_lines($bytes), $entry), "Section $heading_path");
@@ -370,11 +371,11 @@ C<heading_path>, the C<previous_heading_path> and the new C<hash> of the section
 sub rename_heading {
     my ($self, $heading_path, $new_heading, %opt) = @_;
     $self->_valid_expected_hash($opt{expected_hash});
-    die "The preamble (the text before the first heading) has no heading to rename\n" if $heading_path eq '';
+    croak "The preamble (the text before the first heading) has no heading to rename\n" if $heading_path eq '';
     my $heading = $self->_clean_heading($new_heading);
 
     my ($text, $eol, $bytes) = $self->_snapshot_for_update;
-    my $entry = $self->_find_entry($text, $heading_path) or die "Heading not found: $heading_path";
+    my $entry = $self->_find_entry($text, $heading_path) or croak "Heading not found: $heading_path";
     $self->_check_expected_hash($opt{expected_hash},
         $self->_section_hash($self->_raw_lines($bytes), $entry), "Section $heading_path");
 
@@ -384,7 +385,7 @@ sub rename_heading {
 
     my @now = MCP::Wiki::TOC::Parser->parse_content($new_text);
     my ($renamed) = grep { $_->line_start == $entry->line_start } @now;
-    die "The heading '$heading' would not be read back as that heading (it is not valid heading text)\n"
+    croak "The heading '$heading' would not be read back as that heading (it is not valid heading text)\n"
         unless $renamed && $renamed->heading eq $heading && $renamed->level == $entry->level;
 
     $self->write_text($new_text, $eol);
@@ -549,10 +550,10 @@ sub _snippet {
 # Heading text as it goes into a heading line: trimmed, on one line, not empty.
 sub _clean_heading {
     my ($self, $heading) = @_;
-    die "Heading text required\n" unless defined $heading && !ref $heading;
+    croak "Heading text required\n" unless defined $heading && !ref $heading;
     $heading =~ s/\A\s+|\s+\z//g;
-    die "A heading must have text\n" unless length $heading;
-    die "A heading must be on one line: it contains a line break\n" if $heading =~ /[\r\n]/;
+    croak "A heading must have text\n" unless length $heading;
+    croak "A heading must be on one line: it contains a line break\n" if $heading =~ /[\r\n]/;
     return $heading;
 }
 
@@ -560,7 +561,7 @@ sub _clean_heading {
 sub _check_body {
     my ($self, $content, %opt) = @_;
     my $problem = MCP::Wiki::TOC::Parser->body_problem($content, %opt) // return;
-    die "Content contains $problem and would change the structure of the page;"
+    croak "Content contains $problem and would change the structure of the page;"
         ." add a section with add_section and rename a heading with rename_heading\n";
 }
 

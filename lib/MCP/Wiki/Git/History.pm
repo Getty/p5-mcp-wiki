@@ -6,8 +6,11 @@ our $VERSION = '0.002';
 use strict;
 use warnings;
 use Moo;
-use Path::Tiny;
+use Carp qw( croak );
 use Encode qw( decode encode );
+use MCP::Wiki::TOC::Parser;
+use Path::Tiny;
+use namespace::clean;
 
 =attr wiki_root
 
@@ -42,15 +45,15 @@ sub _build_repo {
     until (!$dir || -e $dir->child('.git')) {
         $dir = $dir->is_rootdir ? undef : $dir->parent;
     }
-    die "Not a git repository: " . $self->wiki_root . "\n" unless $dir;
+    croak "Not a git repository: " . $self->wiki_root . "\n" unless $dir;
 
-    die "Git::Raw is required for git history\n" unless eval { require Git::Raw; 1 };
+    croak "Git::Raw is required for git history\n" unless eval { require Git::Raw; 1 };
 
     # The repository the wiki root lies in: its own, a parent's, or the one a
     # linked worktree belongs to
     my $repo = eval { Git::Raw::Repository->discover($self->wiki_root) }
-        or die "Not a git repository: " . $self->wiki_root . "\n";
-    die "Not a git repository with a working directory: " . $self->wiki_root . "\n"
+        or croak "Not a git repository: " . $self->wiki_root . "\n";
+    croak "Not a git repository with a working directory: " . $self->wiki_root . "\n"
         unless defined $repo->workdir;
 
     return $repo;
@@ -160,7 +163,7 @@ sub get_section_commits {
     # On disk the name is bytes, like the root
     my $page_path = Path::Tiny::path($self->wiki_root)->child(encode('UTF-8', $page));
 
-    die "File not found: $page" unless -e $page_path;
+    croak "File not found: $page" unless -e $page_path;
 
     # Walk commit history for this file
     my @commits;
@@ -216,17 +219,17 @@ sub get_section_content_at_commit {
     my $repo = $self->repo;
     my $commit = Git::Raw::Commit->lookup($repo, $commit_hash);
 
-    die "Commit not found: $commit_hash" unless $commit;
+    croak "Commit not found: $commit_hash" unless $commit;
 
     my $content = $self->_page_text_at($commit, $page);
-    die "File not in commit: $page" unless defined $content;
+    croak "File not in commit: $page" unless defined $content;
 
     # Find the section
     my $parser = $self->_get_parser;
     my @toc = $parser->parse_content($content);
 
     my ($heading_entry) = grep { $_->heading_path eq $heading_path } @toc;
-    die "Heading not found: $heading_path" unless $heading_entry;
+    croak "Heading not found: $heading_path" unless $heading_entry;
 
     # Extract section content
     my @lines = split /\n/, $content;
@@ -270,14 +273,14 @@ sub restore_section {
     my $hist = $self->get_section_content_at_commit($page, $heading_path, $commit_hash);
 
     my $current_content = $opts->{current_content}
-        or die "current_content required for restore";
+        or croak "current_content required for restore";
 
     # Get current TOC and the section we want to restore
     my $parser = $self->_get_parser;
     my @current_toc = $parser->parse_content($current_content);
 
     my ($current_entry) = grep { $_->heading_path eq $heading_path } @current_toc;
-    die "Heading not found in current content: $heading_path" unless $current_entry;
+    croak "Heading not found in current content: $heading_path" unless $current_entry;
 
     # Split with -1: the final newline and blank lines at the end of the page
     # are trailing empty fields, and the join has to give them back
@@ -310,7 +313,6 @@ sub _split_trailing_blank_lines {
 }
 
 sub _get_parser {
-    require MCP::Wiki::TOC::Parser;
     return 'MCP::Wiki::TOC::Parser';
 }
 
@@ -347,7 +349,7 @@ sub auto_commit {
     # the tree to commit
     my $root = Path::Tiny::path($self->wiki_root);
     for my $path (ref $paths eq 'ARRAY' ? @$paths : $paths) {
-        die "auto_commit needs a path" unless defined $path && length $path;
+        croak "auto_commit needs a path" unless defined $path && length $path;
         my $file = $root->child(encode('UTF-8', $path));
         if (-e $file || -l $file) {
             $index->add($self->_repo_path($path));

@@ -90,13 +90,6 @@ sub ok_call {
     my ( $name, $args ) = @_;
     my $res = call( $name, $args );
     ok( !$res->{died} && !$res->{isError}, "$name succeeds" ) or diag( $res->{died} // $res->{content}[0]{text} );
-}
-
-
-sub ok_call {
-    my ( $name, $args ) = @_;
-    my $res = call( $name, $args );
-    ok( !$res->{died} && !$res->{isError}, "$name succeeds" ) or diag( $res->{died} // $res->{content}[0]{text} );
     return $res;
 }
 
