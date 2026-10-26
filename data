@@ -1,0 +1,26 @@
+---
+claimed_at: 2026-10-26T20:10:33Z
+claimed_by: kopf
+class: standard
+completed: 2026-10-26T20:10:33Z
+created: 2026-10-25T07:03:31Z
+id: 35
+priority: medium
+started: 2026-10-26T20:07:48Z
+status: done
+tags:
+- proposal
+- heading_path
+title: 'Proposal: duplicate heading_paths - writes silently hit the first match'
+updated: 2026-10-26T20:10:33Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: "# Page / ## Notes / ## Other / ## Notes": get_toc lists both as "Page#Notes" without a marker; update_paragraph always edits the first; the second is unreachable (Document.pm:56, :86; History.pm:76, :125, :170).
+Options: (a) refuse an ambiguous path with an error listing the candidates (line ranges): no address changes, but calls that work today start failing and neither duplicate stays writable; (b) occurrence suffix for the 2nd and later duplicates ("Page#Notes[2]"): the first keeps its address, unreachable ones become reachable; (c) an extra occurrence argument.
+Recommendation: (b) via the heading_path ADR, plus a marker in get_toc; (a) only as a stop-gap if (b) is deferred.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (b): occurrence suffix [2], [3] ... on the last segment of the 2nd and later duplicate; all tools and the history tools resolve it. Branch kopf.
+
+Done in 70b336f. Decision: the suffix stays in the segment on the ancestor stack, so children of the 2nd Notes are Page#Notes[2]#Sub (not a second Page#Notes#Sub); get_toc marker = the suffixed heading_path itself.
