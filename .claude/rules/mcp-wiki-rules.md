@@ -42,8 +42,9 @@ the public tracker is GitHub issues on `Getty/p5-mcp-wiki` plus CPAN RT.
   built — or how the parser finds headings — invalidates addresses users already hold: an
   ADR-grade decision, never slipped into an unrelated change.
 - **`PLAN.md` is a draft, not a spec.** When it contradicts `lib/`, `lib/` wins.
-- **Tests must stay green without `Git::Raw`** — it is not installed here, and the
-  graceful-degrade path is a feature.
+- **The suite stays green with and without `Git::Raw`.** It is installed here, so the
+  real-API tests run; the degrade path ("Git history not available") is a feature — check it
+  with `PERL5OPT=-MTest::Without::Module=Git::Raw prove -lr t/`.
 
 ## Perl specifics — reference, don't restate
 
