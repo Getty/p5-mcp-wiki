@@ -1,0 +1,26 @@
+---
+claimed_at: 2026-10-26T20:14:57Z
+claimed_by: klein
+class: standard
+completed: 2026-10-26T20:14:57Z
+created: 2026-10-25T07:03:33Z
+id: 37
+priority: medium
+started: 2026-10-26T19:54:29Z
+status: done
+tags:
+- proposal
+- security
+title: 'Proposal: rename/delete through an in-root symlink act on the target'
+updated: 2026-10-26T20:14:57Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: `_resolve_page` resolves the symlink (Server.pm:397-412, :445-452). Renaming alias.md moved page.md and left alias.md dangling (and gone from list_pages); the event says from=alias.md.
+Options: (a) refuse rename/delete when the name itself is a symlink; (b) act on the link itself (resolve the parent only); (c) document the current behaviour.
+Recommendation: (a).
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a): refuse rename/delete when the page name itself is a symlink. Branch klein.
+
+Done in 1a1db1f (branch klein). Own decision: the refusal also applies to the rename TARGET when it is a symlink (a dangling link inside the root would otherwise be written through); only the last name component counts, pages inside a symlinked directory are unaffected. Marked Breaking in Changes. t/58 red against the old lib.
