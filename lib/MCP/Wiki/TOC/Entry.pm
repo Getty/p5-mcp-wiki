@@ -1,6 +1,8 @@
 package MCP::Wiki::TOC::Entry;
 # ABSTRACT: Single TOC entry with heading path and line range
 
+our $VERSION = '0.002';
+
 use Moo;
 
 =attr level

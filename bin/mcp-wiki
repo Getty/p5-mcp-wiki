@@ -2,6 +2,8 @@
 # ABSTRACT: CLI runner for MCP::Wiki server
 # PODNAME: mcp-wiki
 
+our $VERSION = '0.002';
+
 use strict;
 use warnings;
 use MCP::Wiki::Server;

@@ -1,6 +1,8 @@
 package MCP::Wiki::Git::History;
 # ABSTRACT: Section history tracking via heading paths
 
+our $VERSION = '0.002';
+
 use strict;
 use warnings;
 use Moo;

@@ -1,6 +1,8 @@
 package MCP::Wiki::Server;
 # ABSTRACT: Main MCP server for wiki management
 
+our $VERSION = '0.002';
+
 use strict;
 use warnings;
 use Moo;

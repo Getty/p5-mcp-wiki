@@ -1,4 +1,6 @@
 {{$NEXT}}
+  - Every module and bin/mcp-wiki carries its own version, 0.002, the next
+    release after the published 0.001.
   - Breaking: update_paragraph refuses content that changes the structure of
     the page: a heading line (a deeper one used to be the only way to make a
     subsection), a code fence or an HTML comment left open. Before, "# X"

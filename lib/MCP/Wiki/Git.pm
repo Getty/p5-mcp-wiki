@@ -1,6 +1,8 @@
 package MCP::Wiki::Git;
 # ABSTRACT: DEPRECATED thin wrapper around MCP::Wiki::Git::History
 
+our $VERSION = '0.002';
+
 use Moo;
 use namespace::clean;
 

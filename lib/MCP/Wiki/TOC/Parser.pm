@@ -1,6 +1,8 @@
 package MCP::Wiki::TOC::Parser;
 # ABSTRACT: Markdown TOC extraction - pure Perl implementation
 
+our $VERSION = '0.002';
+
 use strict;
 use warnings;
 use MCP::Wiki::TOC::Entry;
