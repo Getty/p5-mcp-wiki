@@ -1,0 +1,24 @@
+---
+claimed_at: 2026-10-26T20:27:00Z
+claimed_by: docker
+class: standard
+completed: 2026-10-26T20:27:00Z
+created: 2026-10-25T07:03:48Z
+id: 52
+priority: medium
+started: 2026-10-26T19:54:14Z
+status: done
+tags:
+- proposal
+- docker
+title: 'Proposal: Docker - read-only or host-mounted root-owned wiki'
+updated: 2026-10-26T20:27:00Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: docker-entrypoint.sh:15-18 with `set -e`: a root-owned read-only volume makes `chown` fail and the container exit 1; a root-owned host bind mount gets its ownership changed to 1000:1000. t/08's stub always reports uid 4711, so this branch is untested.
+Options: (a) never chown: run as 1000 and fail with a clear message if the wiki is not writable; (b) chown only empty volumes; (c) `chown ... || true` and continue.
+Recommendation: (a), with a t/08 case for the root-owned branch.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a): never chown, run as uid 1000, fail with a clear message when the wiki root is not writable; t/08 case. Branch docker.
