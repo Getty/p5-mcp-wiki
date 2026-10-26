@@ -1,0 +1,26 @@
+---
+claimed_at: 2026-10-26T20:27:11Z
+claimed_by: docker
+class: standard
+completed: 2026-10-26T20:27:11Z
+created: 2026-10-25T07:03:50Z
+id: 54
+priority: low
+started: 2026-10-26T19:53:57Z
+status: done
+tags:
+- proposal
+- packaging
+title: 'Proposal: the tarball ships agent and repo files'
+updated: 2026-10-26T21:29:19Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: the built dist contains .claude/, .codex, .gitignore, .dockerignore, .worktreeinclude, CLAUDE.md and PLAN.md at the top level, plus the bundle's misc/agent-context/ (including the git-ignored .local.* rules and third-party skill trees).
+Options: (a) exclude the top-level agent/repo files via gather_exclude_match, keep misc/agent-context (a bundle feature); (b) ship as is; (c) also drop misc/agent-context (bundle-level decision).
+Recommendation: (a).
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a): gather_exclude the top-level agent/repo files; keep .dockerignore and misc/agent-context. Branch docker.
+
+2026-10-26 21:29 Reverted on the maintainer's word (2026-10-26): agent and repo files ship in the tarball by design, as the bundle gathers them; the exclusion was a mistake. dist.ini is back to the bundle default, t/09-dist-contents.t is gone.
