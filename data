@@ -1,0 +1,28 @@
+---
+claimed_at: 2026-10-26T20:45:12Z
+claimed_by: werkzeuge
+class: standard
+completed: 2026-10-26T20:45:12Z
+created: 2026-10-25T07:03:41Z
+id: 44
+priority: medium
+started: 2026-10-26T20:20:12Z
+status: done
+tags:
+- proposal
+- concurrency
+title: 'Proposal: optimistic concurrency against lost updates between clients'
+updated: 2026-10-26T20:45:12Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: update_paragraph is read-modify-write with no precondition: client A reads a section, client B updates it, A's update silently overwrites B's change. (Separate cards fix the single-call double read and the create/rename races; this one is about two calls.)
+Options: (a) get_paragraph/get_toc return a content hash per section, update_paragraph takes an optional `expected_hash` and refuses on mismatch; (b) per-page lock file; (c) leave.
+Recommendation: (a), as an optional argument so existing clients keep working. (Raised by the main agent from the concurrency review, not by an audit finding.)
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a): per-section SHA-256 hash in get_paragraph/get_toc, page hash in get_page; optional expected_hash on update_paragraph, delete_section, rename_heading and write_page. Branch werkzeuge, after kopf.
+
+Commit cf5380e on branch werkzeuge. Decisions: hash = SHA-256 over the raw disk lines heading..line_end incl. terminators (CRLF kept, final newline counted); subsections NOT covered (so delete_section's expected_hash does not guard its children; delete_section will report the removed paths). Document alone loads Digest::SHA (t/07 relaxed for Document). update_paragraph answers with the new hash. No lock: check+write share one read only.
+
+expected_hash now also on delete_section, rename_heading, write_page (commit c3f6841).
