@@ -1,0 +1,29 @@
+---
+claimed_at: 2026-10-26T20:45:07Z
+claimed_by: werkzeuge
+class: standard
+completed: 2026-10-26T20:45:07Z
+created: 2026-10-25T07:03:38Z
+id: 42
+priority: medium
+started: 2026-10-26T20:33:37Z
+status: done
+tags:
+- proposal
+- tool-surface
+title: 'Proposal: missing operations - add/delete section, rename heading, write page,
+  search'
+updated: 2026-10-26T20:45:07Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: there is no way to add or insert a section, delete one, change a heading line (update_paragraph keeps it), replace a whole page, or search across pages. The workaround (headings inside an update body) is undocumented and conflicts with the restructure-guard proposal.
+Options: (a) add_section, delete_section, rename_heading; (b) write_page plus documenting the workaround in tool descriptions; (c) search_pages.
+Recommendation: (b) now, (a) and (c) next; each new tool needs a README row, t/36 coverage and an on_change event type decision.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): all of (a), (b), (c) now: write_page, add_section, delete_section, rename_heading, search_pages, each with README row, t/36 coverage and its own event type. Branch werkzeuge, after kopf.
+
+Commit c3f6841 on branch werkzeuge. Red proof: t/66 against the pre-change lib failed 103 assertions (tools absent -> error answers), t/67 23 (output kept in the job dir). Decisions: (1) prefix of search_pages uses _list_pages($prefix)/_walk_page as list_pages does (the card said 'wie list_pages'); (2) add_section: heading arg is 'heading', body 'content', parent optional (default top level), no blank line between heading and body, blank lines added to keep neighbours apart; refuses (a) before not a direct child, (b) before deeper than the new level (it would be adopted), (c) a result that changes any existing heading_path (duplicate in front of its twin), (d) heading text that does not read back; (3) delete_section expected_hash covers the section alone, not subsections - answer lists removed paths; (4) rename_heading rewrites the line as plain ATX, answer has previous_heading_path; git history of the old path ends (History follows by heading_path); (5) write_page keeps the page's line ending and refuses a non-UTF-8 page; (6) search_pages limit 1..500 default 50, snippet ~160 chars, truncated flag; events: write, add_section, delete_section, rename_heading (+previous_heading_path), commit messages 'Wrote page' etc. Verified against real Git::Raw by hand: all five commit.
+
+Fix d45e84a: add_section no longer changes any other section (coordinator finding). New layout: no blank line before the new heading; a separating blank line is the new section's last line and added only when a heading follows; default append goes in front of trailing blank lines; only a last line missing its newline gets one. Red proof: t/66 against 7d9d21a: 38 failed assertions (hashes of predecessors changed, add+delete not byte-equal in compact/blank/preamble/trailing-blank layouts), output in the job dir red66b.txt. Suite: 52 files, 947 tests green.
