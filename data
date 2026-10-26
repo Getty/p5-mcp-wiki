@@ -1,0 +1,26 @@
+---
+claimed_at: 2026-10-26T20:15:20Z
+claimed_by: klein
+class: standard
+completed: 2026-10-26T20:15:20Z
+created: 2026-10-25T07:03:45Z
+id: 48
+priority: low
+started: 2026-10-26T19:54:48Z
+status: done
+tags:
+- proposal
+- tool-surface
+title: 'Proposal: create_page default content and emptied directories'
+updated: 2026-10-26T20:15:20Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: create_page without content writes "# a/b/c.md" (the path as heading). Directories emptied by rename/delete are left behind.
+Options: default heading = basename without .md ("# c"); remove emptied directories up to the root after rename/delete; or leave both.
+Recommendation: change the default heading; leave directories (automatic removal is surprising).
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): default heading = basename without .md; emptied directories stay. Branch klein.
+
+Done in 7f37137 (branch klein). Heading = file name without .md (any case of the extension), emptied directories stay. Test t/57 was red against the old lib.
