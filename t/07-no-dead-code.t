@@ -31,8 +31,10 @@ sub code_of {
   return join '', @code;
 }
 
+# Document alone hashes: the section hash behind expected_hash is its job. The
+# dead update_content_hash stays gone, and no other module needs a digest.
 for my $file (qw(
-  lib/MCP/Wiki/Server.pm lib/MCP/Wiki/Document.pm lib/MCP/Wiki/Git/History.pm
+  lib/MCP/Wiki/Server.pm lib/MCP/Wiki/Git/History.pm
 )) {
   unlike( code_of($file), qr/\bDigest::SHA\b|\bsha256_hex\b/, $file.' loads no Digest::SHA' );
 }

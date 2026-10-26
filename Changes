@@ -1,4 +1,9 @@
 {{$NEXT}}
+  - Every section has a hash, the SHA-256 of its bytes on disk, shown by
+    get_toc and get_paragraph. update_paragraph takes an optional
+    expected_hash and refuses, writing nothing, when the section changed
+    since it was read, so two clients no longer overwrite each other
+    unseen. The answer carries the section's new hash.
   - Breaking: the parser recognises headings by CommonMark's rules. Fenced
     code blocks of ``` and ~~~ (closer of the same character and at least as
     long, no backtick in a backtick fence's info string), a leading YAML

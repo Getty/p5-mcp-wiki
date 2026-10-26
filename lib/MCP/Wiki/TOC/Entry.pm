@@ -86,6 +86,18 @@ has char_count => (
     required => 1,
 );
 
+=attr hash
+
+Optional. SHA-256 of the section's bytes as they are on disk, as lower-case
+hex: its heading line and everything up to the line before the next heading,
+line endings included. The parser knows nothing about bytes and leaves it
+empty; L<MCP::Wiki::Document> fills it in.
+
+=cut
+has hash => (
+    is => 'ro',
+);
+
 sub as_hash {
     my ($self) = @_;
     return {
@@ -97,6 +109,7 @@ sub as_hash {
         line_end        => $self->line_end,
         content_preview=> $self->content_preview,
         char_count      => $self->char_count,
+        (defined $self->hash ? (hash => $self->hash) : ()),
     };
 }
 
@@ -106,7 +119,8 @@ sub as_hash {
 
 Returns the entry as a plain hashref with the keys C<level>, C<heading>,
 C<anchor>, C<heading_path>, C<line_start>, C<line_end>, C<content_preview>
-and C<char_count>, each holding the attribute of that name. This is the wire
+and C<char_count>, each holding the attribute of that name, plus C<hash> when
+the entry has one. This is the wire
 form of a TOC entry: the C<get_toc> tool of L<MCP::Wiki::Server> answers with
 a list of these.
 

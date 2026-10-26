@@ -66,10 +66,10 @@ chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
 | Tool | Required | Optional | Description |
 |------|----------|----------|-------------|
 | `list_pages` | | `prefix` | List all wiki pages, or only those below the directory `prefix` |
-| `get_toc` | `page` | `max_level`, `include_preview` | Get table of contents for a page; `max_level` (1-6) cuts deeper headings, `include_preview` false drops the previews |
-| `get_paragraph` | `page`, `heading_path` | | Get the body of the section under a heading path (heading line not included) |
+| `get_toc` | `page` | `max_level`, `include_preview` | Get table of contents for a page, every entry with the `hash` of its section; `max_level` (1-6) cuts deeper headings, `include_preview` false drops the previews |
+| `get_paragraph` | `page`, `heading_path` | | Get the body of the section under a heading path (heading line not included) and its `hash` |
 | `create_page` | `page` | `content`, `reason` | Create a new wiki page; fails if it exists, default content `# <name>`, the file name without `.md` |
-| `update_paragraph` | `page`, `heading_path`, `content` | `reason` | Replace a section's body; the heading line stays |
+| `update_paragraph` | `page`, `heading_path`, `content` | `reason`, `expected_hash` | Replace a section's body; the heading line stays; refused if the section no longer has the `hash` in `expected_hash` |
 | `rename_page` | `from`, `to` | `reason` | Rename/move a page |
 | `delete_page` | `page` | `reason` | Delete a page |
 | `get_section_history` | `page`, `heading_path` | | Get git history for a section (needs `use_git` and Git::Raw) |
@@ -79,6 +79,12 @@ chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
 the commit gets a generated message naming the page. `restore_section` is
 committed too: its message is the `reason`, else `Restore <heading_path> from
 <short hash>`.
+
+A section's `hash` is the SHA-256 (hex) of its bytes on disk, heading line
+included, subsections not. Passing it back as `expected_hash` makes a write
+fail with "changed since read", and write nothing, when someone else changed
+the section in between; without it a write is unconditional. It is a check,
+not a lock.
 
 ## Configuration
 

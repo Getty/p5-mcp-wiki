@@ -51,7 +51,7 @@ error messages; confinement is the Server's job. The Server never uses `MCP::Wik
 | `get_toc` | `page`, `[max_level]`, `[include_preview]` | — |
 | `get_paragraph` | `page`, `heading_path` | — |
 | `create_page` | `page`, `[content]`, `[reason]` | `create` {page, reason} |
-| `update_paragraph` | `page`, `heading_path`, `content`, `[reason]` | `update` {page, heading_path, reason} |
+| `update_paragraph` | `page`, `heading_path`, `content`, `[reason]`, `[expected_hash]` | `update` {page, heading_path, reason} |
 | `rename_page` | `from`, `to`, `[reason]` | `rename` {from, to, reason only when given} — no `page` key |
 | `delete_page` | `page`, `[reason]` | `delete` {page, reason only when given} |
 | `get_section_history` | `page`, `heading_path` | — |
@@ -140,6 +140,12 @@ History the same name — it looks the page up in each commit's tree by that str
 - Sections are flat: an H1 ends at its first H2 as at any other heading. TOC `line_start`,
   `line_end`, `content_preview` (first 100 chars, then `...`) and `char_count` cover the
   section **including** its heading line.
+- `hash` (SHA-256 hex, `Document::_section_hash`) covers the section's lines on disk from the
+  heading line to `line_end`, line endings included, subsections not; `get_toc` entries and
+  `get_paragraph` show it. `expected_hash` on a writing tool is compared against the same read
+  the write works on ("changed since read", nothing written). No lock: a change between that
+  read and the write is not seen. Only `Document` hashes (t/07 keeps Server and History free of
+  Digest::SHA).
 - `get_paragraph` returns the body; `set_paragraph`/`update_paragraph` replace exactly the
   body and keep the heading. get followed by set writes the file back byte-identical.
 - Lines before the first heading belong to no section; no section tool reaches them.

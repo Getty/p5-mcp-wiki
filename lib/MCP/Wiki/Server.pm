@@ -473,7 +473,8 @@ sub _setup_tools {
         description => 'Get the table of contents of a wiki page: every heading with its level,'
             .' heading_path and line range. heading_path is the address of a section that'
             .' the other tools take; the line numbers are only valid for the page as this'
-            .' call read it and change with any edit. A long page gives a long answer:'
+            .' call read it and change with any edit. Every entry carries the hash of'
+            .' its section, to pass as expected_hash when changing it. A long page gives a long answer:'
             .' max_level and include_preview shorten it without changing any heading_path.',
         annotations => $self->_annotations(read_only => 1),
         input_schema => {
@@ -527,7 +528,8 @@ sub _setup_tools {
     # Tool: get_paragraph
     $self->_add_tool(
         name        => 'get_paragraph',
-        description => 'Get the body of a section (without its heading line) by heading path',
+        description => 'Get the body of a section (without its heading line) by heading path,'
+            .' with the hash of the section to pass as expected_hash when changing it',
         annotations => $self->_annotations(read_only => 1),
         input_schema => {
             type => 'object',
@@ -620,7 +622,9 @@ sub _setup_tools {
     # Tool: update_paragraph
     $self->_add_tool(
         name        => 'update_paragraph',
-        description => 'Replace the body of a section (its heading line stays) by heading path',
+        description => 'Replace the body of a section (its heading line stays) by heading path.'
+            .' With expected_hash, the hash get_toc or get_paragraph showed for the section,'
+            .' the change is refused if the section changed since you read it.',
         annotations => $self->_annotations(destructive => 1, idempotent => 1),
         input_schema => {
             type => 'object',
@@ -641,6 +645,10 @@ sub _setup_tools {
                     type => 'string',
                     description => 'Reason for the change (used as git commit message if git is enabled)',
                 },
+                expected_hash => {
+                    type => 'string',
+                    description => 'Hash of the section as get_toc or get_paragraph showed it (SHA-256, hex). If the section is different now, nothing is written and the call fails with "changed since read". Default: write unconditionally',
+                },
             },
             required => ['page', 'heading_path', 'content'],
         },
@@ -650,7 +658,10 @@ sub _setup_tools {
                 return $tool->text_result("Invalid page: $@", 1);
             }
 
-            eval { $doc->set_paragraph($args->{heading_path}, $args->{content}) };
+            my $hash = eval {
+                $doc->set_paragraph($args->{heading_path}, $args->{content},
+                    (defined $args->{expected_hash} ? (expected_hash => $args->{expected_hash}) : ()));
+            };
             if (my $err = $@) {
                 $err =~ s/\s+\z//;
                 return $tool->text_result("Update failed: $err"
@@ -668,6 +679,7 @@ sub _setup_tools {
                 success => 1,
                 page    => $args->{page},
                 heading_path => $args->{heading_path},
+                (defined $hash ? (hash => $hash) : ()),
             });
         },
     );
@@ -1046,7 +1058,8 @@ go through a symlink) and has to be an existing directory.
 =item C<get_toc> (C<page>, optional C<max_level>, C<include_preview>)
 
 Every heading of the page: level, heading, anchor, C<heading_path>, line range,
-a preview of the section and its length in characters. C<max_level> (1 to 6)
+a preview of the section, its length in characters and its C<hash> (see
+L</SECTION HASHES>). C<max_level> (1 to 6)
 leaves out the headings below that level; they stay addressable by their
 C<heading_path>, which this does not change. C<include_preview> false leaves
 C<content_preview> out of every entry. Both only make a long answer shorter;
@@ -1054,8 +1067,8 @@ without them the answer is the full table of contents.
 
 =item C<get_paragraph> (C<page>, C<heading_path>)
 
-The section's body without its heading line, with heading, C<heading_path> and
-line range. An unknown C<heading_path> is answered with the ones the page has.
+The section's body without its heading line, with heading, C<heading_path>,
+line range and the C<hash> of the section (see L</SECTION HASHES>). An unknown C<heading_path> is answered with the ones the page has.
 
 =item C<create_page> (C<page>, optional C<content>, C<reason>)
 
@@ -1064,9 +1077,11 @@ C<content> the page starts with a heading made of the file name without
 C<.md>: C<# c> for C<a/b/c.md>. Directories that a rename or delete leaves empty
 stay.
 
-=item C<update_paragraph> (C<page>, C<heading_path>, C<content>, optional C<reason>)
+=item C<update_paragraph> (C<page>, C<heading_path>, C<content>, optional C<reason>, C<expected_hash>)
 
-Replaces the section's body; its heading line stays.
+Replaces the section's body; its heading line stays. With C<expected_hash> the
+write is refused, and nothing is written, when the section is not the one the
+hash was taken from. The answer carries the section's new C<hash>.
 
 =item C<rename_page> (C<from>, C<to>, optional C<reason>)
 
@@ -1094,6 +1109,17 @@ short commit hash). Needs C<use_git> and L<Git::Raw>.
 Every tool that writes calls the L</on_change> handlers afterwards. With
 C<use_git>, every write is committed, with the C<reason> as message when one is
 given.
+
+=head1 SECTION HASHES
+
+C<get_toc> and C<get_paragraph> show a C<hash> for every section: the SHA-256,
+in hex, of the section's bytes on disk, from its heading line up to the next
+heading (subsections not included). A client that wants to change a section
+only if nobody else did passes the hash it read as C<expected_hash>; if the
+section differs by then, the tool answers an error ending in "changed since
+read", writes nothing and fires no event. Without C<expected_hash> a write is
+unconditional, as before. The check is not a lock: it compares against one read
+of the page taken just before the write.
 
 =head1 PAGE NAMES
 

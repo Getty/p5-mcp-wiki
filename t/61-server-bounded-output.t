@@ -116,7 +116,7 @@ my @full = @{ data($res)->{entries} };
 is( scalar @full, 6, 'default: all headings' );
 ok( ( !grep { !defined $_->{content_preview} } @full ), 'default: every entry has its preview' );
 is_deeply( [ sort keys %{ $full[0] } ],
-    [qw( anchor char_count content_preview heading heading_path level line_end line_start )],
+    [qw( anchor char_count content_preview hash heading heading_path level line_end line_start )],
     'default: the entry has all its keys' );
 
 for my $true ( JSON::PP::true, 1 ) {

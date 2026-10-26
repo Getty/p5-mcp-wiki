@@ -5,8 +5,10 @@ use strict;
 use warnings;
 use Moo;
 use Carp qw( croak );
+use Digest::SHA qw( sha256_hex );
 use Encode ();
 use Path::Tiny;
+use MCP::Wiki::TOC::Entry;
 use MCP::Wiki::TOC::Parser;
 
 =attr file_path
@@ -47,10 +49,22 @@ sub content {
     return $text;
 }
 
+=method get_toc
+
+    my @entries = $doc->get_toc;
+
+Returns the L<MCP::Wiki::TOC::Parser> entries of the page, each with its
+C<hash> (see L</SECTION HASHES>).
+
+=cut
+
 sub get_toc {
     my ($self) = @_;
-    my ($text) = $self->_read_page;
-    return MCP::Wiki::TOC::Parser->parse_content($text);
+    my ($text, undef, undef, $bytes) = $self->_read_page;
+    my $lines = $self->_raw_lines($bytes);
+    return map {
+        MCP::Wiki::TOC::Entry->new(%{ $_->as_hash }, hash => $self->_section_hash($lines, $_))
+    } MCP::Wiki::TOC::Parser->parse_content($text);
 }
 
 =method get_paragraph
@@ -58,7 +72,7 @@ sub get_toc {
     my $para = $doc->get_paragraph('Introduction#Background');
 
 Returns the section addressed by C<heading_path> as a hashref (C<heading>,
-C<heading_path>, C<content>, C<line_start>, C<line_end>), or nothing when no
+C<heading_path>, C<content>, C<line_start>, C<line_end>, C<hash>), or nothing when no
 such heading exists. C<content> is the body of the section, without its
 heading line, always with LF line endings, also on a CRLF page (one whose
 first line ends in CRLF).
@@ -67,7 +81,7 @@ first line ends in CRLF).
 
 sub get_paragraph {
     my ($self, $heading_path) = @_;
-    my ($text) = $self->_read_page;
+    my ($text, undef, undef, $bytes) = $self->_read_page;
 
     my $entry = $self->_find_entry($text, $heading_path);
     return unless $entry;
@@ -82,12 +96,14 @@ sub get_paragraph {
         content      => $section,
         line_start   => $entry->line_start,
         line_end     => $entry->line_end,
+        hash         => $self->_section_hash($self->_raw_lines($bytes), $entry),
     };
 }
 
 =method set_paragraph
 
-    $doc->set_paragraph('Introduction#Background', $new_body);
+    my $hash = $doc->set_paragraph('Introduction#Background', $new_body,
+        expected_hash => $hash_from_get_paragraph);
 
 Replaces the body of the section, leaving its heading line and every other
 section untouched. Takes what L</get_paragraph> returns as C<content>, so the
@@ -96,16 +112,24 @@ endings, whichever line endings C<$new_body> uses. Dies, leaving the file
 untouched, when the heading does not exist or the page is not valid UTF-8
 (see L</read_for_update>).
 
+With C<expected_hash>, the C<hash> an earlier L</get_paragraph> or L</get_toc>
+showed for the section, it also dies when the section is not as it was then
+("changed since read"). The check and the write work on one read of the page.
+Returns the new hash of the section.
+
 =cut
 
 sub set_paragraph {
-    my ($self, $heading_path, $new_content) = @_;
-    my ($text, $eol) = $self->read_for_update;
+    my ($self, $heading_path, $new_content, %opt) = @_;
+    $self->_valid_expected_hash($opt{expected_hash});
+    my ($text, $eol, $bytes) = $self->_snapshot_for_update;
 
     my $entry = $self->_find_entry($text, $heading_path);
     unless ($entry) {
         die "Heading not found: $heading_path";
     }
+    $self->_check_expected_hash($opt{expected_hash},
+        $self->_section_hash($self->_raw_lines($bytes), $entry), "Section $heading_path");
 
     # Keep trailing empty fields (-1): the blank line before the next heading
     # and the file's final newline survive a get_paragraph -> set_paragraph trip
@@ -118,9 +142,10 @@ sub set_paragraph {
     splice @new_lines, $entry->line_start, $entry->line_end - $entry->line_start,
         split /\n/, $new_content, -1;
 
-    $self->write_text(join("\n", @new_lines), $eol);
+    my $new_text = join("\n", @new_lines);
+    $self->write_text($new_text, $eol);
 
-    return 1;
+    return $self->_hash_of($new_text, $eol, $heading_path);
 }
 
 =method read_for_update
@@ -136,11 +161,18 @@ U+FFFD stands for, so writing it back would destroy them.
 
 sub read_for_update {
     my ($self) = @_;
-    my ($text, $eol, $utf8) = $self->_read_page;
+    my ($text, $eol) = $self->_snapshot_for_update;
+    return ($text, $eol);
+}
+
+# read_for_update plus the page's bytes, for the hashes of the same read
+sub _snapshot_for_update {
+    my ($self) = @_;
+    my ($text, $eol, $utf8, $bytes) = $self->_read_page;
     croak 'Page '.$self->_page_name.' is not valid UTF-8: refusing to write it,'
         .' which would replace its invalid bytes with U+FFFD'
         unless $utf8;
-    return ($text, $eol);
+    return ($text, $eol, $bytes);
 }
 
 =method write_text
@@ -164,8 +196,7 @@ sub write_text {
     croak 'Page '.$self->_page_name.' is read-only: refusing to write it'
         if defined $mode && !-w _;
 
-    $text =~ s/\n/\r\n/g if $eol eq "\r\n";
-    utf8::encode($text);    # the exact inverse of the decode in _slurp
+    $text = $self->_encode($text, $eol);
 
     # Under umask 077 the new file starts out owner-only, so it is never
     # readable by more than the page was while it takes its place; then it
@@ -191,15 +222,24 @@ sub write_text {
 # written with LF.
 sub _read_page {
     my ($self) = @_;
-    my ($text, $utf8) = $self->_slurp;
+    my ($text, $utf8, $bytes) = $self->_slurp;
     my $eol = $text =~ /\A[^\n]*\r\n/ ? "\r\n" : "\n";
     $text =~ s/\r\n/\n/g if $eol eq "\r\n";
-    return ($text, $eol, $utf8);
+    return ($text, $eol, $utf8, $bytes);
 }
 
-# The one read of the page's bytes. Returns the decoded text and whether the
+# The bytes write_text puts on disk for LF text: its LF turned into $eol,
+# encoded as UTF-8, the exact inverse of the decode in _slurp.
+sub _encode {
+    my ($self, $text, $eol) = @_;
+    $text =~ s/\n/\r\n/g if $eol eq "\r\n";
+    utf8::encode($text);
+    return $text;
+}
+
+# The one read of the page's bytes. Returns the decoded text, whether the
 # bytes are valid UTF-8 (well-formed, no surrogates, nothing above U+10FFFF;
-# noncharacters are valid). Valid text comes from utf8::decode, which
+# noncharacters are valid) and the bytes themselves. Valid text comes from utf8::decode, which
 # write_text inverts with utf8::encode, so an unchanged page is written back
 # byte for byte. Anything else is decoded leniently, every malformed sequence
 # becoming U+FFFD: readable, but never to be written back.
@@ -207,9 +247,52 @@ sub _slurp {
     my ($self) = @_;
     my $bytes = Path::Tiny::path($self->file_path)->slurp_raw;
     my $text  = $bytes;
-    return ($text, 1)
+    return ($text, 1, $bytes)
         if utf8::decode($text) && $text !~ /[\x{D800}-\x{DFFF}]|[^\x{0}-\x{10FFFF}]/;
-    return (Encode::decode('UTF-8', $bytes, Encode::FB_DEFAULT | Encode::LEAVE_SRC), 0);
+    return (Encode::decode('UTF-8', $bytes, Encode::FB_DEFAULT | Encode::LEAVE_SRC), 0, $bytes);
+}
+
+# The lines of a page's bytes, each with its line terminator as on disk. The
+# i-th element is line i of the parsed text: reading CRLF as LF and cutting at
+# every LF leave the line count alone.
+sub _raw_lines {
+    my ($self, $bytes) = @_;
+    return [ $bytes =~ /[^\n]*\n|[^\n]+/g ];
+}
+
+# The hash of a section: SHA-256 over the bytes of its lines on disk, from the
+# heading line to its line_end, which is the range set_paragraph replaces
+# (plus the heading).
+sub _section_hash {
+    my ($self, $lines, $entry) = @_;
+    return sha256_hex(join '', @{$lines}[$entry->line_start - 1 .. $entry->line_end - 1]);
+}
+
+# The hash a section has in LF text that is written with $eol, found by its
+# heading_path; nothing when the text has no such section.
+sub _hash_of {
+    my ($self, $text, $eol, $heading_path) = @_;
+    my $entry = $self->_find_entry($text, $heading_path) or return;
+    return $self->_section_hash($self->_raw_lines($self->_encode($text, $eol)), $entry);
+}
+
+sub _valid_expected_hash {
+    my ($self, $expected) = @_;
+    return unless defined $expected;
+    croak 'expected_hash must be a SHA-256 as 64 hex characters, as get_toc and'
+        .' get_paragraph show it'
+        unless !ref $expected && $expected =~ /\A[0-9a-fA-F]{64}\z/;
+    return;
+}
+
+# Dies when the hash the caller read is not the hash of what is on disk now.
+sub _check_expected_hash {
+    my ($self, $expected, $actual, $what) = @_;
+    return unless defined $expected;
+    croak $what.' changed since read: its hash is not the expected one, nothing was'
+        .' written. Read it again and redo the change.'
+        unless lc $expected eq $actual;
+    return;
 }
 
 # The page as the wiki names it, for error messages. The Server hands in the
@@ -234,6 +317,18 @@ sub _find_entry {
 1;
 
 __END__
+
+=head1 SECTION HASHES
+
+The C<hash> of a section is the SHA-256, as lower-case hex, of its bytes as
+they are on disk: the lines from its heading line to the line before the next
+heading, each with its line ending, so a CRLF page hashes its CRLFs and a final
+newline counts. That is the heading line plus the range L</set_paragraph>
+replaces. Subsections are not part of it. It is meant for optimistic
+concurrency: whoever read a section passes its hash back as C<expected_hash>
+and the write is refused when the section changed meanwhile. The check and the
+write use one read of the page, but the document takes no lock: a change
+landing between that read and the write is not seen.
 
 =head1 SYNOPSIS
 
