@@ -1,0 +1,26 @@
+---
+claimed_at: 2026-10-26T20:15:14Z
+claimed_by: klein
+class: standard
+completed: 2026-10-26T20:15:14Z
+created: 2026-10-25T07:03:44Z
+id: 47
+priority: low
+started: 2026-10-26T19:54:43Z
+status: done
+tags:
+- proposal
+- git
+title: 'Proposal: commit_reason_required is accepted but has no effect'
+updated: 2026-10-26T20:15:14Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: the attribute (Server.pm) and --commit-reason-required (bin/mcp-wiki) are never read; the docs now say so.
+Options: (a) implement: writing tools refuse a call without `reason` when set (and their descriptions say so); (b) deprecate and remove; (c) keep as is.
+Recommendation: (a); small, and the flag already exists.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a): with commit_reason_required, writing tools refuse a call without a reason, and their descriptions say so. Branch klein.
+
+Done in 74548b3 (branch klein). Own decisions: (1) rename_page and delete_page had no reason argument and could never succeed with the option on, so both got an optional reason (commit message and event key when given); (2) the schema keeps reason out of required: the refusal is a tool result with a clear message, not a JSON-RPC -32602, so the model can act on it; (3) non-empty means visible text, as for the commit message. Writing tools = tools whose annotations are not read-only. t/60 red against the old lib.
