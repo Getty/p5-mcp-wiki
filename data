@@ -1,0 +1,28 @@
+---
+claimed_at: 2026-10-26T20:45:01Z
+claimed_by: werkzeuge
+class: standard
+completed: 2026-10-26T20:45:01Z
+created: 2026-10-25T07:03:37Z
+id: 41
+priority: medium
+started: 2026-10-26T20:25:14Z
+status: done
+tags:
+- proposal
+- tool-surface
+title: 'Proposal: text before the first heading and heading-less pages are unreachable'
+updated: 2026-10-26T20:45:01Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: no tool exposes Document->content. A page "just text" gives `entries: []`; only delete or create can touch it. The preamble of any page is unreadable and unwritable.
+Options: (a) add a `get_page` tool (whole page); (b) treat heading_path "" as the preamble in get_paragraph/update_paragraph; (c) both.
+Recommendation: (c).
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (c): get_page tool plus heading_path "" for the preamble. Branch werkzeuge, after kopf.
+
+Commit eda663b on branch werkzeuge. Red proof: t/63 against the old lib failed 'the heading_path "" is found', 'front matter and text...', get_page answers etc. (Heading not found: / tool missing). Decisions: preamble line_end = last line before first heading (0 if empty); no TOC entry for it; leading U+FEFF is cut from preamble content and re-prefixed on write; heading-less page: trailing blank-only lines are outside the preamble (as for the last section). get_page content is LF text with BOM kept, hash over all disk bytes.
+
+Also found: (1) get_section_history/restore_section do not know the preamble: History matches heading_path against TOC entries only, so heading_path "" gives an empty history / 'Heading not found' (History.pm lines 130, 226, 277) - a follow-up if preamble history is wanted. (2) .claude/agents/mcp-wiki-worker.md description still says '9 MCP tools' (now 15); agent files not touched. (3) rename_heading ends a section's git history (History follows by heading_path), documented in README/POD. (4) No lock between the hash check and the write (one read, then write), documented. (5) pre-existing: t/56-git-history-page-name-real.t warns 'Subroutine ok_call redefined' (needs Git::Raw).
