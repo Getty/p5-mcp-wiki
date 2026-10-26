@@ -44,7 +44,10 @@ $server->to_stdio;
 Every tool except `list_pages` takes `page` (or `from`/`to`) as a path
 relative to `wiki_root`. A section is addressed by `heading_path`, the
 `#`-joined chain of its ancestor headings such as `Introduction#Background` --
-not by `heading`, and never by line number. Siblings are not part of the
+not by `heading`, and never by line number. A `#` or `\` inside a heading's own
+text is written `\#` or `\\`. Which lines count as headings (code fences, front
+matter, HTML comments are skipped) and how the path is built is documented in
+`MCP::Wiki::TOC::Parser`. Siblings are not part of the
 chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
 `Intro#Beta`.
 

@@ -1,4 +1,18 @@
 {{$NEXT}}
+  - Breaking: the parser recognises headings by CommonMark's rules. Fenced
+    code blocks of ``` and ~~~ (closer of the same character and at least as
+    long, no backtick in a backtick fence's info string), a leading YAML
+    front matter block, HTML comment blocks and lines indented by four or
+    more spaces no longer yield headings, so the addresses of the sections
+    below them change; ATX headings indented by one to three spaces are now
+    headings. Setext headings stay unsupported. update_paragraph no longer
+    cuts a closing fence or front matter delimiter off a page.
+  - Breaking: a closing run of # ends a heading's text only after whitespace,
+    so "# C#" is "C#" (it was "C"). In a heading_path, "\" and "#" inside a
+    heading's text are written "\\" and "\#", and a text ending in "[digits]"
+    has that "[" written "\[": the heading "A#B" and the pair "A" > "B" no
+    longer share an address. MCP::Wiki::TOC::Parser gets escape_segment and
+    split_heading_path for the two directions.
   - Docker: one image, raudssus/mcp-wiki on Docker Hub, built and pushed by
     the dzil bundle at release; the second, separate build-and-push script
     and the local-only registry setting are gone

@@ -22,7 +22,7 @@ the wiki. Open defects and proposals are karr cards (`karr list`), not part of t
 | **wiki_root** | Base directory, fixed at construction; no tool call can change it |
 | **section** | From a heading line to the line before the next heading of any level |
 | **body** | A section without its heading line — what `get_paragraph` returns and `update_paragraph` replaces |
-| **heading_path** | `#`-joined chain of a heading's ancestors and itself (`Intro#Background`) — the only stable address |
+| **heading_path** | `#`-joined chain of a heading's ancestors and itself (`Intro#Background`), `\` and `#` in a heading's text escaped with `\` — the only stable address |
 | **TOC entry** | `MCP::Wiki::TOC::Entry`; `as_hash` is the wire form of `get_toc` |
 | **event** | Hashref passed to `on_change` handlers after a write; `type` is `create`·`update`·`rename`·`delete`·`restore` |
 
@@ -139,13 +139,16 @@ History the same name — it looks the page up in each commit's tree by that str
   leniently (U+FFFD) but is never written: `read_for_update` refuses it.
 
 **Parser**
-- Deliberately line-based, not CommonMark. A heading is a line starting at column 0 with
-  1–6 `#`, whitespace and text; a trailing `#` run is stripped even without a space before
-  it (`# C#` → `C`). A line starting with ```` ``` ```` (any indent) toggles a fence; lines
-  indented 4 spaces are skipped.
-- Setext headings and headings indented 1–3 spaces are never headings; `~~~` fences, front
-  matter and HTML comments are not understood, so a heading-shaped line inside them counts.
-  More accuracy means replacing the parser (see Addressing), not special cases in the regex.
+- Line-based, with the CommonMark rules for what hides a heading; the rules live in the POD of
+  `MCP::Wiki::TOC::Parser` (HEADING RECOGNITION, HEADING PATHS) — keep them there, not here.
+  A heading is an ATX line with 0–3 spaces of indent; a closing `#` run counts only after
+  whitespace (`# C#` stays `C#`). Skipped: leading front matter, ```` ``` ```` and `~~~`
+  fences (CommonMark opener/closer), HTML comment blocks, lines indented 4+ spaces. Setext
+  headings are unsupported.
+- Segments of a `heading_path` are escaped (`\` → `\\`, `#` → `\#`, trailing `[digits]` →
+  `\[digits]`) by `Parser::escape_segment`; `split_heading_path` is the inverse. Lookups
+  compare whole path strings, so the tools never split.
+- Any change to these rules changes stored addresses (see Addressing): Breaking in `Changes`.
 
 **Git and change events**
 - `git_history` is lazy: `undef` unless `use_git` is on and `eval { require Git::Raw }`

@@ -431,7 +431,7 @@ sub _setup_tools {
                 },
                 heading_path => {
                     type => 'string',
-                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"',
+                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"; a # or \ inside a heading\'s own text is written \# or \\\\',
                 },
             },
             required => ['page', 'heading_path'],
@@ -523,7 +523,7 @@ sub _setup_tools {
                 },
                 heading_path => {
                     type => 'string',
-                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"',
+                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"; a # or \ inside a heading\'s own text is written \# or \\\\',
                 },
                 content => {
                     type => 'string',
@@ -670,7 +670,7 @@ sub _setup_tools {
                 },
                 heading_path => {
                     type => 'string',
-                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"',
+                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"; a # or \ inside a heading\'s own text is written \# or \\\\',
                 },
             },
             required => ['page', 'heading_path'],
@@ -716,7 +716,7 @@ sub _setup_tools {
                 },
                 heading_path => {
                     type => 'string',
-                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"',
+                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"; a # or \ inside a heading\'s own text is written \# or \\\\',
                 },
                 commit_hash => {
                     type => 'string',
@@ -901,7 +901,9 @@ __END__
 The server offers nine tools. A page is named by its path relative to
 C<wiki_root> (see L</PAGE NAMES>), a section by its C<heading_path>: the
 C<#>-joined headings from the top level down to the section, as C<get_toc>
-returns them, for example C<Introduction#Background>. The line numbers
+returns them, for example C<Introduction#Background>; a C<#> or C<\> inside a
+heading's own text is written C<\#> or C<\\>. Which lines are headings and how
+the path is built is described in L<MCP::Wiki::TOC::Parser>. The line numbers
 C<get_toc> reports are only valid for the page as that call read it.
 
 =over 4
