@@ -1,0 +1,27 @@
+---
+claimed_at: 2026-10-26T20:54:07Z
+claimed_by: haus
+class: standard
+completed: 2026-10-26T20:54:07Z
+created: 2026-10-25T07:03:46Z
+id: 49
+priority: high
+started: 2026-10-26T20:46:13Z
+status: done
+tags:
+- proposal
+- release
+title: 'Proposal: $VERSION 0.001 equals the released version; modules lack their own
+  $VERSION'
+updated: 2026-10-26T20:54:07Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: lib/MCP/Wiki.pm has `$VERSION = '0.001'`, while Changes records "0.001 2026-04-28 Initial release" and MCP::Wiki::Git's POD says 0.001 was published. The repo has no tags. The house rule says the repo carries the NEXT unreleased version, so the next `dzil release` would stamp {{$NEXT}} as a second 0.001. getty-perl-core also wants `our $VERSION` in every lib/ module and bin/ executable; only MCP::Wiki.pm has one. Not verified against CPAN (out of bounds for this session).
+Options: (a) set 0.002 in every module and bin/mcp-wiki (one release-manager commit); (b) a larger bump (0.100) given the Breaking entries; (c) leave it for release time.
+Recommendation: (a) or (b); the number is the maintainer's choice; do it before the next release.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a): 0.002 in every lib/ module and bin/mcp-wiki (CPAN has 0.001 of 2026-04-29, checked). Branch haus, last.
+
+Commit a8c6f1d on branch haus; t/69-version.t was red before (7 of 9 failed)
