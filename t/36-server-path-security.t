@@ -598,4 +598,39 @@ subtest 'history tools use the same boundary' => sub {
     is( scalar $history->calls, 1, 'a valid request does' );
 };
 
+# Tools that take a page and nothing else that matters here: every spelling of
+# a page the wiki must refuse is tried on each of them, and a plain page works.
+my %PAGE_TOOLS = (
+    get_page => sub { +{ page => $_[0] } },
+);
+
+subtest 'every page name a tool refuses, refused by the later tools too' => sub {
+    my @bad = (
+        [ '../elsewhere/notes.md'            => 'traversal' ],
+        [ 'sub/../../elsewhere/notes.md'     => 'nested traversal' ],
+        [ '../wiki-evil/x.md'                => 'prefix sibling' ],
+        [ 'data.txt'                         => 'non-markdown file' ],
+        [ '.git/notes.md'                    => 'repository' ],
+        [ '.git/config'                      => 'repository config' ],
+        [ 'sub/.GIT/x.md'                    => 'repository in upper case' ],
+        [ 'sub/../.git/notes.md'             => 'detour into the repository' ],
+        ( $can_symlink ? (
+            [ 'leak.md'         => 'file symlink leaving' ],
+            [ 'out/notes.md'    => 'directory symlink leaving' ],
+            [ 'twin/x.md'       => 'symlinked prefix sibling' ],
+            [ 'fake.md'         => 'markdown name for another file' ],
+            [ 'gitnote.md'      => 'file symlink into the repository' ],
+            [ 'gitlink/notes.md' => 'directory symlink into the repository' ],
+        ) : () ),
+    );
+    for my $name ( sort keys %PAGE_TOOLS ) {
+        my $f = fixture();
+        rejected_ok( $f, $name, $PAGE_TOOLS{$name}->( $_->[0] ), $_->[1] ) for @bad;
+        rejected_ok( $f, $name, { %{ $PAGE_TOOLS{$name}->('page.md') }, root_dir => $f->{else}->stringify },
+            'foreign root_dir' );
+        accepted_ok( $f, $name, $PAGE_TOOLS{$name}->('page.md'), 'page inside the root' )
+            if $name =~ /^get_/;
+    }
+};
+
 done_testing;

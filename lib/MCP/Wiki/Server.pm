@@ -55,7 +55,7 @@ has commit_reason_required => (
 =attr server
 
 The L<MCP::Server> the tools are registered on, named C<MCP-Wiki> with the
-distribution's version. Built on first use; one passed to C<new> gets the nine
+distribution's version. Built on first use; one passed to C<new> gets the
 tools added to it.
 
 =cut
@@ -540,7 +540,7 @@ sub _setup_tools {
                 },
                 heading_path => {
                     type => 'string',
-                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"; a # or \ inside a heading\'s own text is written \# or \\\\',
+                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"; a # or \ inside a heading\'s own text is written \# or \\\\. The empty string "" is the preamble: the text before the first heading (front matter included), or the whole page if it has no heading',
                 },
             },
             required => ['page', 'heading_path'],
@@ -562,6 +562,42 @@ sub _setup_tools {
             }
 
             return $tool->structured_result($para);
+        },
+    );
+
+    # Tool: get_page
+    $self->_add_tool(
+        name        => 'get_page',
+        description => 'Get the whole text of a wiki page, with the hash of the page to pass as'
+            .' expected_hash when replacing it. Use it for what no section holds, such as a page'
+            .' without headings; sections are read with get_toc and get_paragraph.',
+        annotations => $self->_annotations(read_only => 1),
+        input_schema => {
+            type => 'object',
+            properties => {
+                page => {
+                    type => 'string',
+                    description => 'Page name (path of a .md file relative to the wiki root)',
+                },
+            },
+            required => ['page'],
+        },
+        code => sub ($tool, $args) {
+            my $doc = eval { $self->_create_document($args->{page}) };
+            if ($@) {
+                return $tool->text_result("Invalid page: $@", 1);
+            }
+
+            my $page = eval { $doc->get_page };
+            if ($@) {
+                return $tool->text_result("Cannot read page: $@", 1);
+            }
+
+            return $tool->structured_result({
+                page    => $args->{page},
+                content => $page->{content},
+                hash    => $page->{hash},
+            });
         },
     );
 
@@ -635,7 +671,7 @@ sub _setup_tools {
                 },
                 heading_path => {
                     type => 'string',
-                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"; a # or \ inside a heading\'s own text is written \# or \\\\',
+                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"; a # or \ inside a heading\'s own text is written \# or \\\\. The empty string "" is the preamble: the text before the first heading (front matter included), or the whole page if it has no heading',
                 },
                 content => {
                     type => 'string',
@@ -1035,7 +1071,7 @@ __END__
 
 =head1 TOOLS
 
-The server offers nine tools. A page is named by its path relative to
+The server offers ten tools. A page is named by its path relative to
 C<wiki_root> (see L</PAGE NAMES>), a section by its C<heading_path>: the
 C<#>-joined headings from the top level down to the section, as C<get_toc>
 returns them, for example C<Introduction#Background>; a C<#> or C<\> inside a
@@ -1068,7 +1104,16 @@ without them the answer is the full table of contents.
 =item C<get_paragraph> (C<page>, C<heading_path>)
 
 The section's body without its heading line, with heading, C<heading_path>,
-line range and the C<hash> of the section (see L</SECTION HASHES>). An unknown C<heading_path> is answered with the ones the page has.
+line range and the C<hash> of the section (see L</SECTION HASHES>). The
+C<heading_path> C<""> is the preamble, the text before the first heading
+(front matter included); a page without headings is all preamble, and
+C<update_paragraph> can write it as well. An unknown C<heading_path> is answered with the ones the page has.
+
+=item C<get_page> (C<page>)
+
+The whole text of the page, with LF line endings, and the C<hash> of all its
+bytes. The way to read what no section holds, such as a page without
+headings.
 
 =item C<create_page> (C<page>, optional C<content>, C<reason>)
 

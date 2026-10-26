@@ -31,7 +31,7 @@ the wiki. Open defects and proposals are karr cards (`karr list`), not part of t
 ```
 bin/mcp-wiki                  # Getopt::Long -> Server->new -> to_stdio
 lib/MCP/Wiki.pm               # $VERSION + POD only
-lib/MCP/Wiki/Server.pm        # Moo; the 9 tools, _resolve_page, on_change, auto-commit
+lib/MCP/Wiki/Server.pm        # Moo; the 10 tools, _resolve_page, on_change, auto-commit
 lib/MCP/Wiki/Document.pm      # one page: get_toc, get_paragraph, set_paragraph on top of
                               # read_for_update/write_text (also the Server's restore path)
 lib/MCP/Wiki/TOC/Parser.pm    # line-based ATX parser -> entries, builds heading_path
@@ -49,6 +49,7 @@ error messages; confinement is the Server's job. The Server never uses `MCP::Wik
 |------|--------------------------|-----------------------------|
 | `list_pages` | `[prefix]` | — |
 | `get_toc` | `page`, `[max_level]`, `[include_preview]` | — |
+| `get_page` | `page` | — |
 | `get_paragraph` | `page`, `heading_path` | — |
 | `create_page` | `page`, `[content]`, `[reason]` | `create` {page, reason} |
 | `update_paragraph` | `page`, `heading_path`, `content`, `[reason]`, `[expected_hash]` | `update` {page, heading_path, reason} |
@@ -148,7 +149,11 @@ History the same name — it looks the page up in each commit's tree by that str
   Digest::SHA).
 - `get_paragraph` returns the body; `set_paragraph`/`update_paragraph` replace exactly the
   body and keep the heading. get followed by set writes the file back byte-identical.
-- Lines before the first heading belong to no section; no section tool reaches them.
+- Lines before the first heading are the **preamble**, addressed by the heading_path `""`
+  (`Document::_locate`): `get_paragraph` and `update_paragraph` read and replace it like a body
+  (front matter included, a leading U+FEFF not part of the content and kept in front on write);
+  a page without headings is all preamble. It is no TOC entry. `get_page` returns the whole page
+  (LF text) and the hash of all its bytes.
 - `Document` reads a page's bytes once per operation and parses and cuts that one string;
   `Document::write_text` is a document's only write; it keeps the page's permission bits
   and refuses a read-only page, leaving it as it is. A page whose first line ends in CRLF

@@ -67,6 +67,22 @@ sub get_toc {
     } MCP::Wiki::TOC::Parser->parse_content($text);
 }
 
+=method get_page
+
+    my $page = $doc->get_page;    # { content => ..., hash => ... }
+
+Returns the whole page: C<content> is its text with LF line endings, also on a
+CRLF page, and a leading byte order mark kept; C<hash> is the SHA-256 of all
+its bytes on disk, see L</SECTION HASHES>.
+
+=cut
+
+sub get_page {
+    my ($self) = @_;
+    my ($text, undef, undef, $bytes) = $self->_read_page;
+    return { content => $text, hash => sha256_hex($bytes) };
+}
+
 =method get_paragraph
 
     my $para = $doc->get_paragraph('Introduction#Background');
@@ -77,26 +93,31 @@ such heading exists. C<content> is the body of the section, without its
 heading line, always with LF line endings, also on a CRLF page (one whose
 first line ends in CRLF).
 
+The heading_path C<""> addresses the preamble, the text before the first
+heading, front matter included; a page without any heading is all preamble.
+Its C<heading> and C<heading_path> are empty, C<line_start> is 1 and
+C<line_end> the last line before the first heading (0 for an empty preamble).
+A byte order mark is not part of its C<content>.
+
 =cut
 
 sub get_paragraph {
     my ($self, $heading_path) = @_;
     my ($text, undef, undef, $bytes) = $self->_read_page;
 
-    my $entry = $self->_find_entry($text, $heading_path);
-    return unless $entry;
+    my $at = $self->_locate($text, $heading_path) or return;
 
-    # The section is the body: the heading line (line_start) is not part of it
-    my @lines = split /\n/, $text;
-    my $section = join("\n", @lines[$entry->line_start .. $entry->line_end - 1]);
+    # The body: the heading line (line_start) is not part of it
+    my @lines = split /\n/, $at->{text};
+    my $body = join("\n", @lines[$at->{body_from} .. $at->{line_end} - 1]);
 
     return {
-        heading      => $entry->heading,
-        heading_path => $entry->heading_path,
-        content      => $section,
-        line_start   => $entry->line_start,
-        line_end     => $entry->line_end,
-        hash         => $self->_section_hash($self->_raw_lines($bytes), $entry),
+        heading      => $at->{heading},
+        heading_path => $heading_path,
+        content      => $body,
+        line_start   => $at->{line_start},
+        line_end     => $at->{line_end},
+        hash         => $self->_range_hash($self->_raw_lines($bytes), $at->{line_start}, $at->{line_end}),
     };
 }
 
@@ -124,25 +145,24 @@ sub set_paragraph {
     $self->_valid_expected_hash($opt{expected_hash});
     my ($text, $eol, $bytes) = $self->_snapshot_for_update;
 
-    my $entry = $self->_find_entry($text, $heading_path);
-    unless ($entry) {
-        die "Heading not found: $heading_path";
-    }
+    my $at = $self->_locate($text, $heading_path)
+        or die "Heading not found: $heading_path";
     $self->_check_expected_hash($opt{expected_hash},
-        $self->_section_hash($self->_raw_lines($bytes), $entry), "Section $heading_path");
+        $self->_range_hash($self->_raw_lines($bytes), $at->{line_start}, $at->{line_end}),
+        $heading_path eq '' ? 'The text before the first heading' : "Section $heading_path");
 
     # Keep trailing empty fields (-1): the blank line before the next heading
     # and the file's final newline survive a get_paragraph -> set_paragraph trip
-    my @new_lines = split /\n/, $text, -1;
+    my @new_lines = split /\n/, $at->{text}, -1;
 
     # The new body joins the page's LF text: CRLF in it would come out as CRCRLF
     $new_content =~ s/\r\n/\n/g if $eol eq "\r\n";
 
     # Replace the body of the section; the heading line itself stays
-    splice @new_lines, $entry->line_start, $entry->line_end - $entry->line_start,
+    splice @new_lines, $at->{body_from}, $at->{line_end} - $at->{body_from},
         split /\n/, $new_content, -1;
 
-    my $new_text = join("\n", @new_lines);
+    my $new_text = $at->{bom}.join("\n", @new_lines);
     $self->write_text($new_text, $eol);
 
     return $self->_hash_of($new_text, $eol, $heading_path);
@@ -260,20 +280,52 @@ sub _raw_lines {
     return [ $bytes =~ /[^\n]*\n|[^\n]+/g ];
 }
 
+# Where the section is: a hashref with its heading ('' for the preamble),
+# line_start and line_end (1-based, inclusive, the heading line included),
+# body_from (index of the first body line in the lines of "text"), the "text"
+# those lines come from and the "bom" that text lost, or nothing when there is
+# no such section. The preamble, heading_path "", runs from line 1 to the line
+# before the first heading, or to the last line of a page without headings; as
+# its text starts the page, a byte order mark is cut from it and handed back
+# in "bom", for the caller to put in front again.
+sub _locate {
+    my ($self, $text, $heading_path) = @_;
+
+    if ($heading_path eq '') {
+        my ($first) = MCP::Wiki::TOC::Parser->parse_content($text);
+        my $bom  = $text =~ s/\A\x{FEFF}// ? "\x{FEFF}" : '';
+        my @all  = split /\n/, $text;
+        my $last = $first ? $first->line_start - 1 : scalar @all;
+        return { heading => '', line_start => 1, line_end => $last, body_from => 0,
+            text => $text, bom => $bom };
+    }
+
+    my $entry = $self->_find_entry($text, $heading_path) or return;
+    return { heading => $entry->heading, line_start => $entry->line_start,
+        line_end => $entry->line_end, body_from => $entry->line_start, text => $text, bom => '' };
+}
+
 # The hash of a section: SHA-256 over the bytes of its lines on disk, from the
 # heading line to its line_end, which is the range set_paragraph replaces
 # (plus the heading).
 sub _section_hash {
     my ($self, $lines, $entry) = @_;
-    return sha256_hex(join '', @{$lines}[$entry->line_start - 1 .. $entry->line_end - 1]);
+    return $self->_range_hash($lines, $entry->line_start, $entry->line_end);
+}
+
+# The hash of lines $from to $to (1-based, inclusive) of the raw lines.
+sub _range_hash {
+    my ($self, $lines, $from, $to) = @_;
+    return sha256_hex(join '', @{$lines}[$from - 1 .. $to - 1]);
 }
 
 # The hash a section has in LF text that is written with $eol, found by its
 # heading_path; nothing when the text has no such section.
 sub _hash_of {
     my ($self, $text, $eol, $heading_path) = @_;
-    my $entry = $self->_find_entry($text, $heading_path) or return;
-    return $self->_section_hash($self->_raw_lines($self->_encode($text, $eol)), $entry);
+    my $at = $self->_locate($text, $heading_path) or return;
+    return $self->_range_hash($self->_raw_lines($self->_encode($text, $eol)),
+        $at->{line_start}, $at->{line_end});
 }
 
 sub _valid_expected_hash {

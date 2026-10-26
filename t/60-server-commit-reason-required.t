@@ -81,7 +81,7 @@ for my $name ( sort keys %write ) {
 # -- reading tools, schemas
 {
     my ( $wiki, $server, $call ) = fixture( commit_reason_required => 1 );
-    for my $name (qw( list_pages get_toc get_paragraph )) {
+    for my $name (qw( list_pages get_toc get_paragraph get_page )) {
         my $res = $call->( $name, { page => 'a.md', heading_path => 'A' } );
         ok( !$res->{isError}, "$name needs no reason" ) or diag $res->{content}[0]{text};
     }

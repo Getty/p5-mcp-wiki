@@ -1,4 +1,8 @@
 {{$NEXT}}
+  - The text before the first heading, front matter included, can be read
+    and written: get_paragraph and update_paragraph take the heading_path
+    "" for it. A page without any heading is all preamble. The new tool
+    get_page returns the whole page and its hash.
   - Every section has a hash, the SHA-256 of its bytes on disk, shown by
     get_toc and get_paragraph. update_paragraph takes an optional
     expected_hash and refuses, writing nothing, when the section changed

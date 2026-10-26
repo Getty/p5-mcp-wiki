@@ -68,6 +68,7 @@ chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
 | `list_pages` | | `prefix` | List all wiki pages, or only those below the directory `prefix` |
 | `get_toc` | `page` | `max_level`, `include_preview` | Get table of contents for a page, every entry with the `hash` of its section; `max_level` (1-6) cuts deeper headings, `include_preview` false drops the previews |
 | `get_paragraph` | `page`, `heading_path` | | Get the body of the section under a heading path (heading line not included) and its `hash` |
+| `get_page` | `page` | | Get the whole text of a page and its `hash`, e.g. a page without headings |
 | `create_page` | `page` | `content`, `reason` | Create a new wiki page; fails if it exists, default content `# <name>`, the file name without `.md` |
 | `update_paragraph` | `page`, `heading_path`, `content` | `reason`, `expected_hash` | Replace a section's body; the heading line stays; refused if the section no longer has the `hash` in `expected_hash` |
 | `rename_page` | `from`, `to` | `reason` | Rename/move a page |
@@ -79,6 +80,10 @@ chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
 the commit gets a generated message naming the page. `restore_section` is
 committed too: its message is the `reason`, else `Restore <heading_path> from
 <short hash>`.
+
+The `heading_path` `""` is the preamble: the text before the first heading,
+front matter included (all of a page without headings). `get_paragraph` reads
+it and `update_paragraph` replaces it like any section.
 
 A section's `hash` is the SHA-256 (hex) of its bytes on disk, heading line
 included, subsections not. Passing it back as `expected_hash` makes a write
