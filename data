@@ -1,0 +1,28 @@
+---
+claimed_at: 2026-10-26T20:10:39Z
+claimed_by: kopf
+class: standard
+completed: 2026-10-26T20:10:39Z
+created: 2026-10-25T07:03:34Z
+id: 38
+priority: medium
+started: 2026-10-26T20:07:53Z
+status: done
+tags:
+- proposal
+- parser
+- heading_path
+title: 'Proposal: heading text - ''#'' collides with the separator, trailing ''#''
+  is stripped'
+updated: 2026-10-26T20:10:39Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: Parser.pm:48's closing-sequence regex needs no space before the #s: "# C#" gives "C", "## F#" gives "F", "## C ##" gives "C" (collisions). The separator is never escaped: H1 "A#B" and the pair "A" > "B" both give "A#B".
+Options: (a) CommonMark closing sequence (requires a space before the run), so "C#" keeps its name; (b) escape '#' inside heading text in heading_path (e.g. "A\#B"); (c) leave both.
+Recommendation: (a) + (b) in the heading-recognition ADR; both change existing addresses of affected headings, announce as Breaking.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): options (a) + (b): CommonMark closing sequence; heading_path escapes \ and # (and a trailing [digits] as \[). Breaking. Branch kopf.
+
+Done in 3a9ac2c (with k34). Helpers Parser::escape_segment / split_heading_path; lookups compare whole path strings so tools never split.
