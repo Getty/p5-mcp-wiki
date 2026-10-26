@@ -168,6 +168,254 @@ sub set_paragraph {
     return $self->_hash_of($new_text, $eol, $heading_path);
 }
 
+=method set_page
+
+    my $hash = $doc->set_page($text, expected_hash => $page_hash);
+
+Replaces the whole page with C<$text> (LF line endings; on a CRLF page it is
+written with CRLF) and returns the new hash of the page. With C<expected_hash>,
+the C<hash> L</get_page> showed, it dies instead when the page is not as it was
+then, and writes nothing. Dies, leaving the page as it is, when the page is not
+valid UTF-8 (see L</read_for_update>).
+
+=cut
+
+sub set_page {
+    my ($self, $content, %opt) = @_;
+    croak 'Page content required' unless defined $content && !ref $content;
+    $self->_valid_expected_hash($opt{expected_hash});
+    my ($text, $eol, $bytes) = $self->_snapshot_for_update;
+    $self->_check_expected_hash($opt{expected_hash}, sha256_hex($bytes), 'The page');
+
+    $content =~ s/\r\n/\n/g if $eol eq "\r\n";
+    $self->write_text($content, $eol);
+    return sha256_hex($self->_encode($content, $eol));
+}
+
+=method add_section
+
+    my $new = $doc->add_section(
+        heading => 'Faq', content => $body, parent => 'Guide', before => 'Guide#Usage',
+    );
+    # { heading_path => 'Guide#Faq', level => 2, hash => ... }
+
+Inserts a new section: a heading of the level below its C<parent> (a
+C<heading_path>; empty or missing is the top level, level 1) and the optional
+C<content> as its body. Without C<before> it becomes the last child of
+C<parent>, after the whole subtree of the parent; C<before> is the
+C<heading_path> of a direct child of C<parent> to insert in front of instead.
+Blank lines are added where they keep it apart from its neighbours.
+
+Dies, writing nothing, when the parent or C<before> does not exist, when
+C<before> is no direct child of the parent, when the level would be 7 or a
+sibling in front of which it goes is of a deeper level (it would become that
+sibling's parent and change its address), when C<heading> is empty, spans lines
+or would not be read back as that heading, when C<content> would change the
+structure of the page (see L<MCP::Wiki::TOC::Parser/body_problem>), or when the
+change would alter the C<heading_path> of any existing section (a new heading
+equal to a sibling in front of which it goes). Returns the new
+C<heading_path>, its C<level> and the C<hash> of the new section.
+
+=cut
+
+sub add_section {
+    my ($self, %a) = @_;
+    my $heading     = $self->_clean_heading($a{heading});
+    my $parent_path = $a{parent} // '';
+    my $before      = defined $a{before} && length $a{before} ? $a{before} : undef;
+
+    my $content = $a{content};
+    if (defined $content) {
+        $content =~ s/\r\n/\n/g;
+        $content =~ s/\n+\z//;
+        $self->_check_body($content);
+    }
+
+    my ($text, $eol) = $self->_snapshot_for_update;
+    my @entries = MCP::Wiki::TOC::Parser->parse_content($text);
+    my %by_path = map { $_->heading_path => $_ } @entries;
+
+    my ($parent, $level);
+    if (length $parent_path) {
+        $parent = $by_path{$parent_path} or die "Heading not found: $parent_path";
+        $level  = $parent->level + 1;
+        die "Cannot add a section below '$parent_path': it is level 6 and there is no level 7\n"
+            if $level > 6;
+    }
+    else {
+        $level = 1;
+    }
+    my $where = length $parent_path ? "'$parent_path'" : 'the top level';
+
+    # The lines of the page without the terminator of the last one; the block
+    # goes in front of the line with index $pos
+    my @lines  = split /\n/, $text, -1;
+    my $had_nl = @lines && $lines[-1] eq '';
+    pop @lines if $had_nl;
+    my $pos = @lines;
+
+    if (defined $before) {
+        my $sibling = $by_path{$before} or die "Heading not found: $before";
+        die "Cannot insert before '$before': it is no direct child of $where\n"
+            unless $self->_is_child($parent_path, $before);
+        die "Cannot insert a level $level heading before '$before': that is level "
+            .$sibling->level.", so it would become a child of the new section and change its"
+            ." address\n" if $level < $sibling->level;
+        $pos = $sibling->line_start - 1;
+    }
+    elsif ($parent) {
+        # After the whole subtree: up to the next heading that is not deeper
+        my ($next) = grep { $_->line_start > $parent->line_start && $_->level <= $parent->level } @entries;
+        $pos = $next->line_start - 1 if $next;
+    }
+
+    my @block = ('#' x $level.' '.$heading,
+        (defined $content && length $content ? split(/\n/, $content, -1) : ()));
+    my $lead = $pos > 0 && $lines[$pos - 1] =~ /\S/ ? 1 : 0;
+    unshift @block, '' if $lead;
+    push @block, '' if $pos < @lines;
+    splice @lines, $pos, 0, @block;
+    my $new_text = join("\n", @lines).($had_nl || !length $text ? "\n" : '');
+
+    # What was written has to read back as the section that was meant, and
+    # leave every other address alone
+    my @now = MCP::Wiki::TOC::Parser->parse_content($new_text);
+    my ($added) = grep { $_->line_start == $pos + $lead + 1 } @now;
+    die "The heading '$heading' would not be read as a heading of level $level at that place"
+        ." (it lies inside a code block, comment or front matter, or is not valid heading text)\n"
+        unless $added && $added->heading eq $heading && $added->level == $level;
+    my @others = grep { $_ != $added } @now;
+    die "Adding '$heading' there would change the address of an existing section"
+        ." (a section of the same name comes after it); add it at the end of '$parent_path'"
+        ." or give it another name\n"
+        unless @others == @entries
+            && !grep { $others[$_]->heading_path ne $entries[$_]->heading_path
+                || $others[$_]->level != $entries[$_]->level } 0 .. $#entries;
+
+    $self->write_text($new_text, $eol);
+    return {
+        heading_path => $added->heading_path,
+        level        => $level,
+        hash         => $self->_entry_hash($new_text, $eol, $added),
+    };
+}
+
+=method delete_section
+
+    my $removed = $doc->delete_section('Guide#Setup', expected_hash => $hash);
+
+Removes the section: its heading, its body and all its subsections. With
+C<expected_hash>, the C<hash> of the section itself (its subsections are not
+part of it), it dies instead when the section is not as it was then. The
+preamble (C<heading_path> C<"">) is no section and cannot be deleted. Returns
+the C<heading_path>s that are gone, the section's first.
+
+=cut
+
+sub delete_section {
+    my ($self, $heading_path, %opt) = @_;
+    $self->_valid_expected_hash($opt{expected_hash});
+    die "The preamble (the text before the first heading) is no section and has no heading"
+        ." to delete; empty it with update_paragraph\n" if $heading_path eq '';
+
+    my ($text, $eol, $bytes) = $self->_snapshot_for_update;
+    my @entries = MCP::Wiki::TOC::Parser->parse_content($text);
+    my ($i) = grep { $entries[$_]->heading_path eq $heading_path } 0 .. $#entries;
+    die "Heading not found: $heading_path" unless defined $i;
+    my $entry = $entries[$i];
+    $self->_check_expected_hash($opt{expected_hash},
+        $self->_section_hash($self->_raw_lines($bytes), $entry), "Section $heading_path");
+
+    # The section runs on through every deeper heading
+    my $j = $i + 1;
+    $j++ while $j <= $#entries && $entries[$j]->level > $entry->level;
+    my $last = $j <= $#entries ? $entries[$j]->line_start - 1 : $entries[-1]->line_end;
+
+    my @lines = split /\n/, $text, -1;
+    splice @lines, $entry->line_start - 1, $last - $entry->line_start + 1;
+    $self->write_text(join("\n", @lines), $eol);
+
+    return [ map { $_->heading_path } @entries[$i .. $j - 1] ];
+}
+
+=method rename_heading
+
+    my $new = $doc->rename_heading('Guide#Setup', 'Install', expected_hash => $hash);
+    # { heading_path => 'Guide#Install', previous_heading_path => 'Guide#Setup', hash => ... }
+
+Changes the text of a heading and keeps its level; the line is rewritten as a
+plain ATX heading. The C<heading_path> of the section changes, and so do those
+of its subsections; a new text equal to a sibling's shifts the occurrence
+suffixes of the duplicates (see L<MCP::Wiki::TOC::Parser/HEADING PATHS>).
+C<expected_hash> is the hash of the section. Dies, writing nothing, when the
+section does not exist (the preamble has no heading), when the text is empty,
+spans lines or would not be read back as that heading. Returns the new
+C<heading_path>, the C<previous_heading_path> and the new C<hash> of the section.
+
+=cut
+
+sub rename_heading {
+    my ($self, $heading_path, $new_heading, %opt) = @_;
+    $self->_valid_expected_hash($opt{expected_hash});
+    die "The preamble (the text before the first heading) has no heading to rename\n" if $heading_path eq '';
+    my $heading = $self->_clean_heading($new_heading);
+
+    my ($text, $eol, $bytes) = $self->_snapshot_for_update;
+    my $entry = $self->_find_entry($text, $heading_path) or die "Heading not found: $heading_path";
+    $self->_check_expected_hash($opt{expected_hash},
+        $self->_section_hash($self->_raw_lines($bytes), $entry), "Section $heading_path");
+
+    my @lines = split /\n/, $text, -1;
+    $lines[$entry->line_start - 1] = '#' x $entry->level.' '.$heading;
+    my $new_text = join "\n", @lines;
+
+    my @now = MCP::Wiki::TOC::Parser->parse_content($new_text);
+    my ($renamed) = grep { $_->line_start == $entry->line_start } @now;
+    die "The heading '$heading' would not be read back as that heading (it is not valid heading text)\n"
+        unless $renamed && $renamed->heading eq $heading && $renamed->level == $entry->level;
+
+    $self->write_text($new_text, $eol);
+    return {
+        heading_path          => $renamed->heading_path,
+        previous_heading_path => $heading_path,
+        hash                  => $self->_entry_hash($new_text, $eol, $renamed),
+    };
+}
+
+=method search
+
+    my @hits = $doc->search('needle', 10);
+
+Returns the lines that contain the text, ignoring case, in page order, at most
+the given number (all without one). Each hit is a hashref: C<line> (1-based),
+C<heading_path> of the section the line is in (empty before the first heading)
+and a C<snippet>, the line without surrounding whitespace, cut to about 160
+characters around the match.
+
+=cut
+
+sub search {
+    my ($self, $query, $limit) = @_;
+    my ($text) = $self->_read_page;
+    my @entries = MCP::Wiki::TOC::Parser->parse_content($text);
+    my $re      = qr/\Q$query\E/i;
+    my @lines   = split /\n/, $text;
+
+    my (@hits, $e);
+    $e = -1;
+    for my $n (1 .. @lines) {
+        $e++ while $e < $#entries && $entries[$e + 1]->line_start <= $n;
+        next unless $lines[$n - 1] =~ $re;
+        push @hits, {
+            line         => $n,
+            heading_path => $e < 0 ? '' : $entries[$e]->heading_path,
+            snippet      => $self->_snippet($lines[$n - 1], $-[0]),
+        };
+        last if defined $limit && @hits >= $limit;
+    }
+    return @hits;
+}
+
 =method read_for_update
 
     my ($text, $eol) = $doc->read_for_update;
@@ -270,6 +518,56 @@ sub _slurp {
     return ($text, 1, $bytes)
         if utf8::decode($text) && $text !~ /[\x{D800}-\x{DFFF}]|[^\x{0}-\x{10FFFF}]/;
     return (Encode::decode('UTF-8', $bytes, Encode::FB_DEFAULT | Encode::LEAVE_SRC), 0, $bytes);
+}
+
+# A line without surrounding whitespace, cut to 160 characters around the
+# match at $at, with "..." where it was cut.
+sub _snippet {
+    my ($self, $line, $at) = @_;
+    $at -= length($1) if $line =~ s/\A(\s+)//;
+    $line =~ s/\s+\z//;
+    return $line if length $line <= 160;
+    my $from = $at > 60 ? $at - 60 : 0;
+    $from = length($line) - 160 if $from > length($line) - 160;
+    return ($from > 0 ? '...' : '').substr($line, $from, 160)
+        .($from + 160 < length $line ? '...' : '');
+}
+
+# Heading text as it goes into a heading line: trimmed, on one line, not empty.
+sub _clean_heading {
+    my ($self, $heading) = @_;
+    die "Heading text required\n" unless defined $heading && !ref $heading;
+    $heading =~ s/\A\s+|\s+\z//g;
+    die "A heading must have text\n" unless length $heading;
+    die "A heading must be on one line: it contains a line break\n" if $heading =~ /[\r\n]/;
+    return $heading;
+}
+
+# Dies when text meant as a section body would change the page's structure.
+sub _check_body {
+    my ($self, $content, %opt) = @_;
+    my $problem = MCP::Wiki::TOC::Parser->body_problem($content, %opt) // return;
+    die "Content contains $problem and would change the structure of the page;"
+        ." add a section with add_section and rename a heading with rename_heading\n";
+}
+
+# True when $path is a direct child of $parent ("" is the top level): $path is
+# the parent's path plus exactly one more segment.
+sub _is_child {
+    my ($self, $parent, $path) = @_;
+    my $rest = $path;
+    if (length $parent) {
+        return 0 unless index($path, $parent.'#') == 0;
+        $rest = substr($path, length($parent) + 1);
+    }
+    my ($segments) = MCP::Wiki::TOC::Parser->split_heading_path($rest);
+    return @$segments == 1 ? 1 : 0;
+}
+
+# The hash of an entry of LF text that is written with $eol.
+sub _entry_hash {
+    my ($self, $text, $eol, $entry) = @_;
+    return $self->_section_hash($self->_raw_lines($self->_encode($text, $eol)), $entry);
 }
 
 # The lines of a page's bytes, each with its line terminator as on disk. The

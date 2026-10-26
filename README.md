@@ -66,11 +66,16 @@ chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
 | Tool | Required | Optional | Description |
 |------|----------|----------|-------------|
 | `list_pages` | | `prefix` | List all wiki pages, or only those below the directory `prefix` |
+| `search_pages` | `query` | `prefix`, `limit` | Case-insensitive plain-text search over the pages (below the directory `prefix`, as for `list_pages`); matches with page, `heading_path`, line and snippet, at most `limit` (default 50), `truncated` tells if there were more |
 | `get_toc` | `page` | `max_level`, `include_preview` | Get table of contents for a page, every entry with the `hash` of its section; `max_level` (1-6) cuts deeper headings, `include_preview` false drops the previews |
 | `get_paragraph` | `page`, `heading_path` | | Get the body of the section under a heading path (heading line not included) and its `hash` |
 | `get_page` | `page` | | Get the whole text of a page and its `hash`, e.g. a page without headings |
 | `create_page` | `page` | `content`, `reason` | Create a new wiki page; fails if it exists, default content `# <name>`, the file name without `.md` |
 | `update_paragraph` | `page`, `heading_path`, `content` | `reason`, `expected_hash` | Replace a section's body; the heading line stays; refused if the section no longer has the `hash` in `expected_hash` |
+| `write_page` | `page`, `content` | `reason`, `expected_hash` | Replace the whole text of an existing page; refused if the page no longer has the `hash` in `expected_hash` |
+| `add_section` | `page`, `heading` | `parent`, `before`, `content`, `reason` | Add a section as the last child of `parent` (`""` or none: top level), or in front of its child `before`; the level is the parent's plus one; answers with the new `heading_path` |
+| `delete_section` | `page`, `heading_path` | `reason`, `expected_hash` | Delete a section with its body and subsections |
+| `rename_heading` | `page`, `heading_path`, `heading` | `reason`, `expected_hash` | Change the text of a heading, keep its level; answers with the new `heading_path` |
 | `rename_page` | `from`, `to` | `reason` | Rename/move a page |
 | `delete_page` | `page` | `reason` | Delete a page |
 | `get_section_history` | `page`, `heading_path` | | Get git history for a section (needs `use_git` and Git::Raw) |
@@ -91,6 +96,14 @@ fail with "changed since read", and write nothing, when someone else changed
 the section in between; without it a write is unconditional. It is a check,
 not a lock.
 
+Sections are added with `add_section`, removed with `delete_section` (heading,
+body and subsections) and renamed with `rename_heading`; `write_page` replaces
+a whole existing page. `add_section` is refused when it would change the
+`heading_path` of an existing section (a new heading equal to the sibling it is
+put in front of). `rename_heading` changes the `heading_path` of the section
+and of its subsections, and the git history, which follows a section by that
+path, starts anew under the new one.
+
 ## Configuration
 
 - `wiki_root`: Root directory for wiki pages (default: current dir)
@@ -101,7 +114,8 @@ not a lock.
   server warns once at startup and goes on without git: the history tools
   answer "not available" and nothing is committed.
 - `commit_reason_required`: every tool that writes (`create_page`,
-  `update_paragraph`, `rename_page`, `delete_page`, `restore_section`) refuses a
+  `update_paragraph`, `write_page`, `add_section`, `delete_section`,
+  `rename_heading`, `rename_page`, `delete_page`, `restore_section`) refuses a
   call without a non-empty `reason`, and its description says so (default: 0,
   `reason` stays optional).
 

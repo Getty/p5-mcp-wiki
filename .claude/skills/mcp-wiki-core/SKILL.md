@@ -31,7 +31,7 @@ the wiki. Open defects and proposals are karr cards (`karr list`), not part of t
 ```
 bin/mcp-wiki                  # Getopt::Long -> Server->new -> to_stdio
 lib/MCP/Wiki.pm               # $VERSION + POD only
-lib/MCP/Wiki/Server.pm        # Moo; the 10 tools, _resolve_page, on_change, auto-commit
+lib/MCP/Wiki/Server.pm        # Moo; the 15 tools, _resolve_page, on_change, auto-commit
 lib/MCP/Wiki/Document.pm      # one page: get_toc, get_paragraph, set_paragraph on top of
                               # read_for_update/write_text (also the Server's restore path)
 lib/MCP/Wiki/TOC/Parser.pm    # line-based ATX parser -> entries, builds heading_path
@@ -53,6 +53,11 @@ error messages; confinement is the Server's job. The Server never uses `MCP::Wik
 | `get_paragraph` | `page`, `heading_path` | — |
 | `create_page` | `page`, `[content]`, `[reason]` | `create` {page, reason} |
 | `update_paragraph` | `page`, `heading_path`, `content`, `[reason]`, `[expected_hash]` | `update` {page, heading_path, reason} |
+| `write_page` | `page`, `content`, `[reason]`, `[expected_hash]` | `write` {page, reason} |
+| `add_section` | `page`, `heading`, `[parent]`, `[before]`, `[content]`, `[reason]` | `add_section` {page, heading_path (new), reason} |
+| `delete_section` | `page`, `heading_path`, `[reason]`, `[expected_hash]` | `delete_section` {page, heading_path, reason} |
+| `rename_heading` | `page`, `heading_path`, `heading`, `[reason]`, `[expected_hash]` | `rename_heading` {page, heading_path (new), previous_heading_path, reason} |
+| `search_pages` | `query`, `[prefix]`, `[limit]` | — |
 | `rename_page` | `from`, `to`, `[reason]` | `rename` {from, to, reason only when given} — no `page` key |
 | `delete_page` | `page`, `[reason]` | `delete` {page, reason only when given} |
 | `get_section_history` | `page`, `heading_path` | — |
@@ -147,6 +152,12 @@ History the same name — it looks the page up in each commit's tree by that str
   the write works on ("changed since read", nothing written). No lock: a change between that
   read and the write is not seen. Only `Document` hashes (t/07 keeps Server and History free of
   Digest::SHA).
+- Structure edits (`Document::add_section`/`delete_section`/`rename_heading`) build the new text,
+  re-parse it and check the result before writing: the new heading reads back as itself, an
+  added one leaves every existing `heading_path` unchanged (a duplicate in front of its twin is
+  refused), levels never go past 6 and a `before` sibling must not be deeper than the new level.
+  `delete_section` takes the whole subtree; its hash is the section's alone. `search_pages`
+  walks `_list_pages($prefix)` and re-resolves every page; plain substring, case-insensitive.
 - `get_paragraph` returns the body; `set_paragraph`/`update_paragraph` replace exactly the
   body and keep the heading. get followed by set writes the file back byte-identical.
 - Lines before the first heading are the **preamble**, addressed by the heading_path `""`

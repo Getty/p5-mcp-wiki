@@ -65,8 +65,10 @@ for my $name ( sort grep { exists $tool{$_}{inputSchema}{properties}{heading_pat
 
 # tool annotations: what a client may rely on to decide how careful to be
 {
-  my %writes = map { $_ => 1 } qw( create_page update_paragraph rename_page delete_page restore_section );
-  my %destructive = map { $_ => 1 } qw( update_paragraph rename_page delete_page restore_section );
+  my %writes = map { $_ => 1 } qw( create_page update_paragraph rename_page delete_page restore_section
+    write_page add_section delete_section rename_heading );
+  my %destructive = map { $_ => 1 } qw( update_paragraph rename_page delete_page restore_section
+    write_page delete_section rename_heading );
   my $true = sub { $_[0] && "$_[0]" ne '0' && "$_[0]" ne 'false' ? 1 : 0 };
 
   for my $name ( sort keys %tool ) {
@@ -82,7 +84,7 @@ for my $name ( sort grep { exists $tool{$_}{inputSchema}{properties}{heading_pat
       ok( !$true->( $a->{destructiveHint} ), "$name (create) is not destructive" );
     }
   }
-  for my $name (qw( get_toc get_paragraph get_section_history list_pages )) {
+  for my $name (qw( get_toc get_paragraph get_page search_pages get_section_history list_pages )) {
     ok( $true->( $tool{$name}{annotations}{readOnlyHint} ), "$name is read-only" );
   }
 }

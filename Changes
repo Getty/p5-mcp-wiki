@@ -1,4 +1,12 @@
 {{$NEXT}}
+  - New tools to change a page's structure: add_section (below a parent or
+    in front of a sibling, answers with the new heading_path),
+    delete_section, rename_heading and write_page (replaces a whole existing
+    page). They take optional reason and, where they change existing text,
+    expected_hash.
+  - New tool search_pages: case-insensitive plain-text search over the pages
+    (optionally below a directory), with the section, line and a snippet of
+    each match, bounded by limit.
   - The text before the first heading, front matter included, can be read
     and written: get_paragraph and update_paragraph take the heading_path
     "" for it. A page without any heading is all preamble. The new tool

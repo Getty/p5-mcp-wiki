@@ -9,7 +9,7 @@ Docker image.
 ## Project structure
 
 ```
-lib/MCP/Wiki/Server.pm       # Moo; registers the 10 MCP tools, on_change, auto-commit
+lib/MCP/Wiki/Server.pm       # Moo; registers the 15 MCP tools, on_change, auto-commit
 lib/MCP/Wiki/Document.pm     # read/write a single page
 lib/MCP/Wiki/TOC/Parser.pm   # line-based ATX parser -> entry list
 lib/MCP/Wiki/TOC/Entry.pm    # value object; as_hash is the wire form of the TOC

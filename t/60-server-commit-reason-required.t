@@ -41,6 +41,10 @@ my %write = (
     rename_page      => { from => 'a.md', to => 'c.md' },
     delete_page      => { page => 'b.md' },
     restore_section  => { page => 'a.md', heading_path => 'A', commit_hash => 'abc1234' },
+    write_page       => { page => 'a.md', content => "# A\n\nnew\n" },
+    add_section      => { page => 'a.md', parent => 'A', heading => 'Added' },
+    delete_section   => { page => 'b.md', heading_path => 'B' },
+    rename_heading   => { page => 'a.md', heading_path => 'A', heading => 'Renamed' },
 );
 
 # -- required
@@ -81,11 +85,11 @@ for my $name ( sort keys %write ) {
 # -- reading tools, schemas
 {
     my ( $wiki, $server, $call ) = fixture( commit_reason_required => 1 );
-    for my $name (qw( list_pages get_toc get_paragraph get_page )) {
-        my $res = $call->( $name, { page => 'a.md', heading_path => 'A' } );
+    for my $name (qw( list_pages get_toc get_paragraph get_page search_pages )) {
+        my $res = $call->( $name, { page => 'a.md', heading_path => 'A', query => 'body' } );
         ok( !$res->{isError}, "$name needs no reason" ) or diag $res->{content}[0]{text};
     }
-    for my $tool ( grep { $_->name =~ /^(?:rename_page|delete_page)$/ } @{ $server->server->tools } ) {
+    for my $tool ( grep { $_->name =~ /^(?:rename_page|delete_page|write_page|add_section|delete_section|rename_heading)$/ } @{ $server->server->tools } ) {
         is( $tool->input_schema->{properties}{reason}{type}, 'string', $tool->name . ' takes a reason' );
         ok( !grep( { $_ eq 'reason' } @{ $tool->input_schema->{required} // [] } ),
             $tool->name . ': reason stays out of "required" (the refusal is a tool result)' );

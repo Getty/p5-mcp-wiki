@@ -94,69 +94,9 @@ text. Dies when the file cannot be read.
 
 sub parse_content {
     my ($class, $content) = @_;
-
-    # A byte order mark is no part of the first line's text. Only the parse
-    # drops it; Document keeps it in the page, so a write leaves it in place.
-    $content =~ s/\A\x{FEFF}//;
-    my @lines = split /\n/, $content;
-    my @headings;  # [line_number, level, heading_text]
-
-    my $i = 0;
-
-    # Leading YAML front matter: --- on the first line up to the next --- or ...
-    if (@lines && $lines[0] =~ /^---[ \t]*$/) {
-        for my $j (1 .. $#lines) {
-            if ($lines[$j] =~ /^(?:---|\.\.\.)[ \t]*$/) {
-                $i = $j + 1;
-                last;
-            }
-        }
-    }
-
-    my $fence;    # [char, length] of the open fenced code block
-    for (; $i <= $#lines; $i++) {
-        my $line = $lines[$i];
-
-        if ($fence) {
-            # The closer: same char, at least as long, up to 3 spaces, nothing after
-            $fence = undef
-                if $line =~ /^ {0,3}(`+|~+)[ \t]*$/
-                    && substr($1, 0, 1) eq $fence->[0]
-                    && length($1) >= $fence->[1];
-            next;
-        }
-
-        # Indented code (4+ spaces) is neither a heading nor a fence
-        next if $line =~ /^    /;
-
-        if ($line =~ /^ {0,3}(`{3,}|~{3,})(.*)$/) {
-            my ($run, $info) = ($1, $2);
-            # A backtick fence has no backtick in its info string
-            unless (substr($run, 0, 1) eq '`' && $info =~ /`/) {
-                $fence = [substr($run, 0, 1), length $run];
-                next;
-            }
-        }
-
-        # HTML comment block: up to the line holding -->
-        if ($line =~ /^ {0,3}<!--(.*)$/) {
-            my $rest = $1;
-            next if $rest =~ /-->/;
-            my $j = $i + 1;
-            $j++ while $j <= $#lines && $lines[$j] !~ /-->/;
-            $i = $j;
-            next;
-        }
-
-        # ATX headings: 1-6 #, 0-3 spaces before, a closing # run only after a space
-        if ($line =~ /^ {0,3}(#{1,6})(?:[ \t]+(.*))?$/) {
-            my ($level, $text) = (length $1, $2 // '');
-            $text =~ s/(?:^|[ \t]+)#+[ \t]*$//;
-            $text =~ s/^[ \t]+|[ \t]+$//g;
-            next unless length $text;
-            push @headings, [$i + 1, $level, $text];  # 1-indexed line
-        }
-    }
+    my ($lines, $headings) = $class->_scan($content);
+    my @lines    = @$lines;
+    my @headings = @$headings;  # [line_number, level, heading_text]
 
     # Convert to TOC entries with line ranges
     my @entries;
@@ -214,6 +154,109 @@ level, so C<# A>, C<### C>, C<## B> give C<A>, C<A#C> and C<A#B>. Duplicate
 paths are made unique by an occurrence suffix, see L</HEADING PATHS>.
 
 =cut
+
+# The line scan behind parse_content and body_problem: the lines, the headings
+# found ([line_number, level, text]) and what is still open at the end (a code
+# fence or an HTML comment that never closes), if anything. Without
+# front_matter a leading --- block is ordinary text.
+sub _scan {
+    my ($class, $content, %opt) = @_;
+    my $front_matter = exists $opt{front_matter} ? $opt{front_matter} : 1;
+    my $open_comment = 0;
+
+    # A byte order mark is no part of the first line's text. Only the parse
+    # drops it; Document keeps it in the page, so a write leaves it in place.
+    $content =~ s/\A\x{FEFF}//;
+    my @lines = split /\n/, $content;
+    my @headings;  # [line_number, level, heading_text]
+
+    my $i = 0;
+
+    # Leading YAML front matter: --- on the first line up to the next --- or ...
+    if ($front_matter && @lines && $lines[0] =~ /^---[ \t]*$/) {
+        for my $j (1 .. $#lines) {
+            if ($lines[$j] =~ /^(?:---|\.\.\.)[ \t]*$/) {
+                $i = $j + 1;
+                last;
+            }
+        }
+    }
+
+    my $fence;    # [char, length] of the open fenced code block
+    for (; $i <= $#lines; $i++) {
+        my $line = $lines[$i];
+
+        if ($fence) {
+            # The closer: same char, at least as long, up to 3 spaces, nothing after
+            $fence = undef
+                if $line =~ /^ {0,3}(`+|~+)[ \t]*$/
+                    && substr($1, 0, 1) eq $fence->[0]
+                    && length($1) >= $fence->[1];
+            next;
+        }
+
+        # Indented code (4+ spaces) is neither a heading nor a fence
+        next if $line =~ /^    /;
+
+        if ($line =~ /^ {0,3}(`{3,}|~{3,})(.*)$/) {
+            my ($run, $info) = ($1, $2);
+            # A backtick fence has no backtick in its info string
+            unless (substr($run, 0, 1) eq '`' && $info =~ /`/) {
+                $fence = [substr($run, 0, 1), length $run];
+                next;
+            }
+        }
+
+        # HTML comment block: up to the line holding -->
+        if ($line =~ /^ {0,3}<!--(.*)$/) {
+            my $rest = $1;
+            next if $rest =~ /-->/;
+            my $j = $i + 1;
+            $j++ while $j <= $#lines && $lines[$j] !~ /-->/;
+            $open_comment = 1 if $j > $#lines;
+            $i = $j;
+            next;
+        }
+
+        # ATX headings: 1-6 #, 0-3 spaces before, a closing # run only after a space
+        if ($line =~ /^ {0,3}(#{1,6})(?:[ \t]+(.*))?$/) {
+            my ($level, $text) = (length $1, $2 // '');
+            $text =~ s/(?:^|[ \t]+)#+[ \t]*$//;
+            $text =~ s/^[ \t]+|[ \t]+$//g;
+            next unless length $text;
+            push @headings, [$i + 1, $level, $text];  # 1-indexed line
+        }
+    }
+
+    my $open = $fence ? 'a code fence' : $open_comment ? 'an HTML comment' : undef;
+    return (\@lines, \@headings, $open);
+}
+
+=method body_problem
+
+    my $problem = MCP::Wiki::TOC::Parser->body_problem($text);
+    my $problem = MCP::Wiki::TOC::Parser->body_problem($text, front_matter => 1);
+
+Says whether C<$text>, meant as the body of one section, would change the
+structure of the page it is written into: returns a short description of the
+first problem, or nothing when the text is safe. The problems are a line that
+is a heading by the rules of L</HEADING RECOGNITION> (the section would be
+split or a new one created), and a code fence or an HTML comment still open at
+the end (it would swallow every later heading). A heading inside a closed
+fence or comment is no heading, so it is fine. The text is read as starting
+outside of everything, as a section body does; C<front_matter> says it starts
+a page, where a leading front matter block is skipped (the preamble).
+
+=cut
+
+sub body_problem {
+    my ($class, $text, %opt) = @_;
+    my ($lines, $headings, $open) = $class->_scan($text, front_matter => $opt{front_matter} ? 1 : 0);
+    return 'a heading line (line '.$headings->[0][0].': '.$lines->[$headings->[0][0] - 1].')'
+        if @$headings;
+    return $open.' that is never closed' if $open;
+    return;
+}
 
 sub _build_heading_path {
     my ($class, $stack, $seen, $level, $heading) = @_;

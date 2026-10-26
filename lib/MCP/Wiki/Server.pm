@@ -412,6 +412,7 @@ sub _error_text {
 # has the path after all or cannot be read.
 sub _heading_hint {
     my ($self, $doc, $heading_path) = @_;
+    return '' if defined $heading_path && $heading_path eq '';
 
     my @paths = eval { map { $_->heading_path } $doc->get_toc };
     return '' if $@ || grep { $_ eq ($heading_path // '') } @paths;
@@ -463,6 +464,78 @@ sub _setup_tools {
             return $tool->structured_result({
                 pages => $pages,
                 count => scalar(@$pages),
+            });
+        },
+    );
+
+    # Tool: search_pages
+    $self->_add_tool(
+        name        => 'search_pages',
+        description => 'Search the text of the wiki pages for a string, ignoring case. Answers with'
+            .' the matching lines: page, heading_path of the section the line is in (empty before'
+            .' the first heading), line number and a short snippet. At most limit matches; truncated'
+            .' says there were more.',
+        annotations => $self->_annotations(read_only => 1),
+        input_schema => {
+            type => 'object',
+            properties => {
+                query => {
+                    type => 'string',
+                    description => 'The text to look for: a plain string within one line, no pattern',
+                },
+                prefix => {
+                    type => 'string',
+                    description => 'Only search pages below this directory (path relative to the wiki root, e.g. "projects/alpha"), as for list_pages. Default: the whole wiki',
+                },
+                limit => {
+                    type => 'integer',
+                    minimum => 1,
+                    maximum => 500,
+                    description => 'Return at most this many matches. Default: 50',
+                },
+            },
+            required => ['query'],
+        },
+        code => sub ($tool, $args) {
+            my $query = $args->{query};
+            return $tool->text_result('Invalid query: a non-empty string without line breaks', 1)
+                unless defined $query && !ref $query && length $query && $query !~ /[\r\n]/;
+            my $limit = $args->{limit} // 50;
+            return $tool->text_result('Invalid limit: an integer from 1 to 500', 1)
+                if ref $limit || $limit !~ /\A[0-9]+\z/ || $limit < 1 || $limit > 500;
+
+            # The pages are the ones list_pages offers for this prefix; every
+            # one goes through _resolve_page again before it is opened
+            my $pages = eval { $self->_list_pages($args->{prefix}) }
+                or return $tool->text_result("Cannot search: $@", 1);
+
+            my (@matches, $truncated);
+            PAGE: for my $name (@$pages) {
+                my $path = eval { $self->_resolve_page($name) } or next;
+                my $doc = MCP::Wiki::Document->new(
+                    file_path => "$path",
+                    wiki_root => $self->_wiki_root_path->stringify,
+                );
+                my @hits = eval { $doc->search($query, $limit + 1 - @matches) };
+                if ($@) {
+                    warn "search_pages: skipping $name: $@";
+                    next;
+                }
+                for my $hit (@hits) {
+                    if (@matches >= $limit) {
+                        $truncated = 1;
+                        last PAGE;
+                    }
+                    push @matches, { page => $name, %$hit };
+                }
+            }
+
+            return $tool->structured_result({
+                query     => $query,
+                matches   => \@matches,
+                count     => scalar(@matches),
+                limit     => $limit + 0,
+                truncated => $truncated ? JSON::PP::true : JSON::PP::false,
             });
         },
     );
@@ -720,6 +793,270 @@ sub _setup_tools {
         },
     );
 
+    # Tool: write_page
+    $self->_add_tool(
+        name        => 'write_page',
+        description => 'Replace the whole text of an existing wiki page. Fails if the page does not'
+            .' exist (create_page makes new ones). Every section is replaced too, so addresses'
+            .' (heading_path) of the old text may stop existing. With expected_hash, the hash'
+            .' get_page showed, the write is refused if the page changed since you read it.',
+        annotations => $self->_annotations(destructive => 1, idempotent => 1),
+        input_schema => {
+            type => 'object',
+            properties => {
+                page => {
+                    type => 'string',
+                    description => 'Page name (path of a .md file relative to the wiki root)',
+                },
+                content => {
+                    type => 'string',
+                    description => 'The new text of the whole page',
+                },
+                reason => {
+                    type => 'string',
+                    description => 'Reason for the change (used as git commit message if git is enabled)',
+                },
+                expected_hash => {
+                    type => 'string',
+                    description => 'Hash of the page as get_page showed it (SHA-256, hex). If the page is different now, nothing is written and the call fails with "changed since read". Default: write unconditionally',
+                },
+            },
+            required => ['page', 'content'],
+        },
+        code => sub ($tool, $args) {
+            my $doc = eval { $self->_create_document($args->{page}) };
+            if ($@) {
+                return $tool->text_result("Invalid page: $@", 1);
+            }
+
+            my $hash = eval {
+                $doc->set_page($args->{content},
+                    (defined $args->{expected_hash} ? (expected_hash => $args->{expected_hash}) : ()));
+            };
+            if (my $err = $@) {
+                $err =~ s/\s+\z//;
+                return $tool->text_result("Write failed: $err", 1);
+            }
+
+            $self->_fire_on_change({
+                type   => 'write',
+                page   => $self->_page_name($doc->file_path),
+                reason => $args->{reason},
+            });
+
+            return $tool->structured_result({
+                success => 1,
+                page    => $args->{page},
+                hash    => $hash,
+            });
+        },
+    );
+
+    # Tool: add_section
+    $self->_add_tool(
+        name        => 'add_section',
+        description => 'Add a new section: a heading one level below parent (level 1 at the top'
+            .' level) with an optional body. It becomes the last child of parent, or goes in'
+            .' front of the sibling named in before. Answers with the heading_path of the new'
+            .' section. Refused if it would change the address of an existing section.',
+        annotations => $self->_annotations(),
+        input_schema => {
+            type => 'object',
+            properties => {
+                page => {
+                    type => 'string',
+                    description => 'Page name (path of a .md file relative to the wiki root)',
+                },
+                heading => {
+                    type => 'string',
+                    description => 'Text of the new heading, without the leading #',
+                },
+                content => {
+                    type => 'string',
+                    description => 'Body of the new section, without the heading line; it may not contain a heading line or leave a code fence open. Default: empty',
+                },
+                parent => {
+                    type => 'string',
+                    description => 'Heading path of the section the new one goes below, as get_toc returns it, e.g. "Introduction#Background". The empty string, the default, is the top level',
+                },
+                before => {
+                    type => 'string',
+                    description => 'Heading path of a direct child of parent to insert in front of, e.g. "Introduction#Usage". Default: after the last child of parent',
+                },
+                reason => {
+                    type => 'string',
+                    description => 'Reason for the change (used as git commit message if git is enabled)',
+                },
+            },
+            required => ['page', 'heading'],
+        },
+        code => sub ($tool, $args) {
+            my $doc = eval { $self->_create_document($args->{page}) };
+            if ($@) {
+                return $tool->text_result("Invalid page: $@", 1);
+            }
+
+            my $new = eval {
+                $doc->add_section(
+                    heading => $args->{heading},
+                    content => $args->{content},
+                    parent  => $args->{parent},
+                    before  => $args->{before},
+                );
+            };
+            if (my $err = $@) {
+                $err =~ s/\s+\z//;
+                return $tool->text_result("Add section failed: $err"
+                    .($err =~ /Heading not found: (.*)\z/m ? $self->_heading_hint($doc, $1) : ''), 1);
+            }
+
+            $self->_fire_on_change({
+                type         => 'add_section',
+                page         => $self->_page_name($doc->file_path),
+                heading_path => $new->{heading_path},
+                reason       => $args->{reason},
+            });
+
+            return $tool->structured_result({
+                success      => 1,
+                page         => $args->{page},
+                heading_path => $new->{heading_path},
+                level        => $new->{level},
+                hash         => $new->{hash},
+            });
+        },
+    );
+
+    # Tool: delete_section
+    $self->_add_tool(
+        name        => 'delete_section',
+        description => 'Delete a section with its heading, its body and all its subsections.'
+            .' Answers with the heading paths that are gone. With expected_hash, the hash of the'
+            .' section itself (subsections are not part of it), the delete is refused if the'
+            .' section changed since you read it.',
+        annotations => $self->_annotations(destructive => 1),
+        input_schema => {
+            type => 'object',
+            properties => {
+                page => {
+                    type => 'string',
+                    description => 'Page name (path of a .md file relative to the wiki root)',
+                },
+                heading_path => {
+                    type => 'string',
+                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"; a # or \ inside a heading\'s own text is written \# or \\\\',
+                },
+                reason => {
+                    type => 'string',
+                    description => 'Reason for the change (used as git commit message if git is enabled)',
+                },
+                expected_hash => {
+                    type => 'string',
+                    description => 'Hash of the section as get_toc or get_paragraph showed it (SHA-256, hex). If the section is different now, nothing is deleted and the call fails with "changed since read". Default: delete unconditionally',
+                },
+            },
+            required => ['page', 'heading_path'],
+        },
+        code => sub ($tool, $args) {
+            my $doc = eval { $self->_create_document($args->{page}) };
+            if ($@) {
+                return $tool->text_result("Invalid page: $@", 1);
+            }
+
+            my $removed = eval {
+                $doc->delete_section($args->{heading_path},
+                    (defined $args->{expected_hash} ? (expected_hash => $args->{expected_hash}) : ()));
+            };
+            if (my $err = $@) {
+                $err =~ s/\s+\z//;
+                return $tool->text_result("Delete section failed: $err"
+                    .$self->_heading_hint($doc, $args->{heading_path}), 1);
+            }
+
+            $self->_fire_on_change({
+                type         => 'delete_section',
+                page         => $self->_page_name($doc->file_path),
+                heading_path => $args->{heading_path},
+                reason       => $args->{reason},
+            });
+
+            return $tool->structured_result({
+                success      => 1,
+                page         => $args->{page},
+                heading_path => $args->{heading_path},
+                removed      => $removed,
+            });
+        },
+    );
+
+    # Tool: rename_heading
+    $self->_add_tool(
+        name        => 'rename_heading',
+        description => 'Change the text of a heading and keep its level and its body. The'
+            .' heading_path of the section and of its subsections changes with it; the answer'
+            .' has the new one. With expected_hash, the hash of the section, the change is'
+            .' refused if the section changed since you read it.',
+        annotations => $self->_annotations(destructive => 1),
+        input_schema => {
+            type => 'object',
+            properties => {
+                page => {
+                    type => 'string',
+                    description => 'Page name (path of a .md file relative to the wiki root)',
+                },
+                heading_path => {
+                    type => 'string',
+                    description => 'Full heading path as get_toc returns it: the #-joined ancestor headings down to the section, e.g. "Introduction#Background"; a # or \ inside a heading\'s own text is written \# or \\\\',
+                },
+                heading => {
+                    type => 'string',
+                    description => 'The new text of the heading, without the leading #',
+                },
+                reason => {
+                    type => 'string',
+                    description => 'Reason for the change (used as git commit message if git is enabled)',
+                },
+                expected_hash => {
+                    type => 'string',
+                    description => 'Hash of the section as get_toc or get_paragraph showed it (SHA-256, hex). If the section is different now, nothing is changed and the call fails with "changed since read". Default: change unconditionally',
+                },
+            },
+            required => ['page', 'heading_path', 'heading'],
+        },
+        code => sub ($tool, $args) {
+            my $doc = eval { $self->_create_document($args->{page}) };
+            if ($@) {
+                return $tool->text_result("Invalid page: $@", 1);
+            }
+
+            my $new = eval {
+                $doc->rename_heading($args->{heading_path}, $args->{heading},
+                    (defined $args->{expected_hash} ? (expected_hash => $args->{expected_hash}) : ()));
+            };
+            if (my $err = $@) {
+                $err =~ s/\s+\z//;
+                return $tool->text_result("Rename heading failed: $err"
+                    .$self->_heading_hint($doc, $args->{heading_path}), 1);
+            }
+
+            $self->_fire_on_change({
+                type                  => 'rename_heading',
+                page                  => $self->_page_name($doc->file_path),
+                heading_path          => $new->{heading_path},
+                previous_heading_path => $new->{previous_heading_path},
+                reason                => $args->{reason},
+            });
+
+            return $tool->structured_result({
+                success               => 1,
+                page                  => $args->{page},
+                heading_path          => $new->{heading_path},
+                previous_heading_path => $new->{previous_heading_path},
+                hash                  => $new->{hash},
+            });
+        },
+    );
+
     # Tool: rename_page
     $self->_add_tool(
         name        => 'rename_page',
@@ -962,9 +1299,11 @@ sub _build_server {
     $server->on_change(sub ($event) { ... });
 
 Registers a handler, called after a writing tool changed a page. Every handler
-gets a hash reference of its own: C<type> (C<create>, C<update>, C<rename>,
-C<delete> or C<restore>) and, by type, C<page>, C<heading_path>, C<reason>,
-C<commit_hash>, or C<from> and C<to> for a rename. A rename or delete carries
+gets a hash reference of its own: C<type> (C<create>, C<update>, C<write>,
+C<add_section>, C<delete_section>, C<rename_heading>, C<rename>, C<delete> or
+C<restore>) and, by type, C<page>, C<heading_path> (for C<add_section> and
+C<rename_heading> the new one, and for the latter C<previous_heading_path>),
+C<reason>, C<commit_hash>, or C<from> and C<to> for a rename. A rename or delete carries
 C<reason> only when the call gave one. Page names are relative to
 C<wiki_root>, the way C<list_pages> shows them, whatever spelling the client
 used: C<sub/./a.md> arrives as C<sub/a.md>, a symlink as the page it points
@@ -1017,6 +1356,10 @@ sub _commit_message_for_event {
         update  => "Updated page",
         rename  => "Renamed page",
         delete  => "Deleted page",
+        write          => "Wrote page",
+        add_section    => "Added section",
+        delete_section => "Deleted section",
+        rename_heading => "Renamed heading",
     );
     my $type = $event->{type} // 'unknown';
     # A restore names the section and the commit it came from
@@ -1071,7 +1414,7 @@ __END__
 
 =head1 TOOLS
 
-The server offers ten tools. A page is named by its path relative to
+The server offers fifteen tools. A page is named by its path relative to
 C<wiki_root> (see L</PAGE NAMES>), a section by its C<heading_path>: the
 C<#>-joined headings from the top level down to the section, as C<get_toc>
 returns them, for example C<Introduction#Background>; a C<#> or C<\> inside a
@@ -1090,6 +1433,16 @@ directory relative to the root such as C<projects/alpha>, only the pages below
 it, still named relative to the root; the walk enters no other directory. The
 prefix is checked like a page name (it may not leave the root, name C<.git> or
 go through a symlink) and has to be an existing directory.
+
+=item C<search_pages> (C<query>, optional C<prefix>, C<limit>)
+
+The lines of the pages that contain the C<query>, a plain string without line
+breaks, ignoring case: for each its C<page>, the C<heading_path> of the section
+it is in (empty before the first heading), its C<line> and a short C<snippet>.
+Pages are those C<list_pages> gives, in that order, and C<prefix> narrows them
+the same way; it is checked like a page name. At most C<limit> matches (1 to
+500, default 50); C<truncated> is true when there were more. The answer also
+has C<count> and the C<limit> used.
 
 =item C<get_toc> (C<page>, optional C<max_level>, C<include_preview>)
 
@@ -1127,6 +1480,45 @@ stay.
 Replaces the section's body; its heading line stays. With C<expected_hash> the
 write is refused, and nothing is written, when the section is not the one the
 hash was taken from. The answer carries the section's new C<hash>.
+
+=item C<write_page> (C<page>, C<content>, optional C<reason>, C<expected_hash>)
+
+Replaces the whole text of an existing page; a page that does not exist is an
+error (C<create_page> makes new ones). The page keeps its line ending. With
+C<expected_hash>, the C<hash> from C<get_page>, the write is refused when the
+page has changed. The answer carries the page's new C<hash>.
+
+=item C<add_section> (C<page>, C<heading>, optional C<parent>, C<before>, C<content>, C<reason>)
+
+Adds a section. Its heading is of the level below the C<parent> (a
+C<heading_path>; C<""> or none is the top level, level 1) and has the text
+C<heading>; C<content> is its body. It becomes the last child of the parent,
+after the parent's whole subtree, or goes in front of C<before>, the
+C<heading_path> of a direct child of the parent. The answer has the new
+C<heading_path>, the C<level> and the section's C<hash>. Refused, writing
+nothing, when the parent or C<before> does not exist, when the level would be
+7, when C<before> is of a deeper level than the new section (it would become
+its child), when the heading text is empty, spans lines or is not read back as
+that heading, when C<content> contains a heading line or leaves a code fence or
+HTML comment open, and when it would change the C<heading_path> of an existing
+section: a new heading equal to the sibling it goes in front of takes its
+address.
+
+=item C<delete_section> (C<page>, C<heading_path>, optional C<reason>, C<expected_hash>)
+
+Deletes the section with its heading, its body and all its subsections; the
+answer lists the C<removed> heading paths. C<expected_hash> is the C<hash> of
+the section alone, so changed subsections do not refuse the delete. Later
+duplicates of a removed heading move up (C<Notes[2]> becomes C<Notes>). The
+preamble is no section.
+
+=item C<rename_heading> (C<page>, C<heading_path>, C<heading>, optional C<reason>, C<expected_hash>)
+
+Changes the text of a section's heading, keeping its level and body; the line
+is rewritten as a plain C<#> heading. The C<heading_path> of the section and of
+its subsections changes (the answer has the new one and the
+C<previous_heading_path>); so do the occurrence suffixes of same-named
+siblings, when the new text equals theirs.
 
 =item C<rename_page> (C<from>, C<to>, optional C<reason>)
 

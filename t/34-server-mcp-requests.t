@@ -45,6 +45,11 @@ my %REQUIRED = (
   get_toc             => ['page'],
   get_paragraph       => [ 'heading_path', 'page' ],
   get_page            => ['page'],
+  search_pages        => ['query'],
+  write_page          => [ 'content', 'page' ],
+  add_section         => [ 'heading', 'page' ],
+  delete_section      => [ 'heading_path', 'page' ],
+  rename_heading      => [ 'heading', 'heading_path', 'page' ],
   create_page         => ['page'],
   update_paragraph    => [ 'content', 'heading_path', 'page' ],
   rename_page         => [ 'from', 'to' ],
@@ -71,8 +76,8 @@ subtest 'tools/list' => sub {
   ok( !$res->{error}, 'no error' ) or diag explain $res;
   my %by_name = map { $_->{name} => $_ } @{ $res->{result}{tools} };
 
-  is_deeply( [ sort keys %by_name ], [ sort keys %REQUIRED ], 'exactly the 10 tools' );
-  is( scalar @{ $res->{result}{tools} }, 10, 'no tool listed twice' );
+  is_deeply( [ sort keys %by_name ], [ sort keys %REQUIRED ], 'exactly the 15 tools' );
+  is( scalar @{ $res->{result}{tools} }, 15, 'no tool listed twice' );
 
   my %registered = map { $_->name => $_ } @{ $server->server->tools };
   for my $name ( sort keys %REQUIRED ) {

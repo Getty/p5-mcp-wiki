@@ -601,7 +601,11 @@ subtest 'history tools use the same boundary' => sub {
 # Tools that take a page and nothing else that matters here: every spelling of
 # a page the wiki must refuse is tried on each of them, and a plain page works.
 my %PAGE_TOOLS = (
-    get_page => sub { +{ page => $_[0] } },
+    get_page       => sub { +{ page => $_[0] } },
+    write_page     => sub { +{ page => $_[0], content => "# Gone\n" } },
+    add_section    => sub { +{ page => $_[0], heading => 'Gone' } },
+    delete_section => sub { +{ page => $_[0], heading_path => 'Secret' } },
+    rename_heading => sub { +{ page => $_[0], heading_path => 'Secret', heading => 'Gone' } },
 );
 
 subtest 'every page name a tool refuses, refused by the later tools too' => sub {
@@ -629,8 +633,31 @@ subtest 'every page name a tool refuses, refused by the later tools too' => sub 
         rejected_ok( $f, $name, { %{ $PAGE_TOOLS{$name}->('page.md') }, root_dir => $f->{else}->stringify },
             'foreign root_dir' );
         accepted_ok( $f, $name, $PAGE_TOOLS{$name}->('page.md'), 'page inside the root' )
-            if $name =~ /^get_/;
+            if $name eq 'get_page';
     }
+    my $f = fixture();
+    accepted_ok( $f, 'write_page', { page => 'page.md', content => "# New\n" }, 'page inside the root' );
+    accepted_ok( $f, 'add_section', { page => 'sub/inner.md', heading => 'More' }, 'page in a subdirectory' );
+    accepted_ok( $f, 'rename_heading', { page => 'sub/inner.md', heading_path => 'Inner', heading => 'Renamed' },
+        'page in a subdirectory' );
+    accepted_ok( $f, 'delete_section', { page => 'sub/inner.md', heading_path => 'Renamed' }, 'page in a subdirectory' );
+};
+
+subtest 'search_pages reads only what list_pages offers' => sub {
+    my $f = fixture();
+    $f->{wiki}->child('hit.md')->spew_utf8("# Hit\n$SECRET inside\n");
+
+    my ( $result, $text ) = call( $f->{server}, 'search_pages', { query => $SECRET } );
+    ok( $result && !$result->{isError}, 'a search succeeds' ) or diag($text);
+    is_deeply( [ map { $_->{page} } @{ $result->{structuredContent}{matches} } ], ['hit.md'],
+        'it finds the wiki page only, not data.txt, .git, .GIT or the pages outside' );
+
+    for my $prefix ( '../elsewhere', '../wiki-evil', '..', '.git', 'sub/.GIT', 'sub/../../elsewhere', './.git/hooks',
+        ( $can_symlink ? ( 'out', 'twin', 'gitlink', 'out/' ) : () ) ) {
+        my $text = rejected_ok( $f, 'search_pages', { query => 'secret', prefix => $prefix }, "prefix $prefix" );
+    }
+    rejected_ok( $f, 'search_pages', { query => 'secret', root_dir => $f->{else}->stringify }, 'foreign root_dir' );
+    accepted_ok( $f, 'search_pages', { query => 'inside', prefix => 'sub' }, 'prefix inside the root' );
 };
 
 done_testing;
