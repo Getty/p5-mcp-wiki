@@ -1,0 +1,25 @@
+---
+claimed_at: 2026-10-26T20:26:44Z
+claimed_by: docker
+class: standard
+completed: 2026-10-26T20:26:44Z
+created: 2026-10-25T07:03:42Z
+id: 45
+priority: medium
+started: 2026-10-26T19:54:26Z
+status: done
+tags:
+- proposal
+- git
+title: 'Proposal: git-mode preconditions - repo subdirectories/worktrees, missing
+  Git::Raw'
+updated: 2026-10-26T20:26:44Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: History.pm:31-33 requires `wiki_root/.git` to be a directory, so a wiki in a subdirectory of a repo or in a worktree fails (every write warns, history tools fail). With --git but no Git::Raw or no repo the server starts and only warns on each write.
+Options: (a) `Git::Raw::Repository->discover` plus a repo-relative path prefix; (b) one clear startup warning when --git cannot be honoured (keeps the graceful degrade); (c) refuse to start in --git mode when the repo cannot be opened (contradicts the documented graceful degrade).
+Recommendation: (b) now, (a) later.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): options (a) + (b): Git::Raw::Repository->discover with a repo-relative prefix (subdirectories, worktrees); one startup warning when --git cannot be honoured, graceful degrade kept. Branch docker.
