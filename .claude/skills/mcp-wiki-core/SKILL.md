@@ -115,8 +115,10 @@ History the same name — it looks the page up in each commit's tree by that str
   entering level L pops every open heading of level >= L, then pushes. `# Intro`,
   `## Alpha`, `## Beta`, `# Other` give `Intro`, `Intro#Alpha`, `Intro#Beta`, `Other`;
   `# A`, `### C`, `## B` give `A`, `A#C`, `A#B`.
-- Duplicate paths are not disambiguated; every lookup (`Document`, `History`) takes the
-  first matching entry.
+- The 2nd and later heading with the same path get an occurrence suffix on the last segment
+  (`Page#Notes[2]`, `[3]`...); the first keeps its address, children of a suffixed heading carry
+  the suffix too. The parser assigns it, so `Document` and `History` stay a plain
+  first-match on the whole path — History numbers each revision's headings by the same rule.
 - The address is a tool argument, the key History matches commits on, and what users have
   stored. Changing how it is built — the stack, the separator, which lines count as
   headings, what their text is — invalidates every stored address: an ADR-grade decision,

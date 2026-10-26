@@ -902,7 +902,9 @@ The server offers nine tools. A page is named by its path relative to
 C<wiki_root> (see L</PAGE NAMES>), a section by its C<heading_path>: the
 C<#>-joined headings from the top level down to the section, as C<get_toc>
 returns them, for example C<Introduction#Background>; a C<#> or C<\> inside a
-heading's own text is written C<\#> or C<\\>. Which lines are headings and how
+heading's own text is written C<\#> or C<\\>. The second and later heading with
+the same path get a C<[2]>, C<[3]> ... on the last segment (C<Page#Notes[2]>);
+C<get_toc> shows them so. Which lines are headings and how
 the path is built is described in L<MCP::Wiki::TOC::Parser>. The line numbers
 C<get_toc> reports are only valid for the page as that call read it.
 

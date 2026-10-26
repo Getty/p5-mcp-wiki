@@ -66,6 +66,15 @@ C<\#>, so the separator is never ambiguous: the H1 C<A#B> is C<A\#B>, the pair
 C<A> > C<B> is C<A#B>. A text that ends in C<[digits]> has its C<[> written
 C<\[>. L</split_heading_path> undoes all of it.
 
+The first heading with a given path keeps it. The second and every later one
+gets an occurrence suffix on its last segment: with C<# Page>, C<## Notes>,
+C<## Other>, C<## Notes> the sections are C<Page#Notes>, C<Page#Other> and
+C<Page#Notes[2]>, then C<Page#Notes[3]> for a third. The suffix stays in the
+path of the section's children (C<Page#Notes[2]#Sub>). Every lookup works on
+whole paths, so C<get_paragraph>, C<update_paragraph> and the history tools
+reach the later duplicates; History numbers the headings of each revision by
+the same rule, so a duplicate is followed through the history by its number.
+
 =cut
 
 sub parse_file {
@@ -152,6 +161,7 @@ sub parse_content {
     # Convert to TOC entries with line ranges
     my @entries;
     my @stack;    # [level, heading] of the open ancestors, carried across headings
+    my %seen;     # path => how many headings have had it so far
     for my $i (0 .. $#headings) {
         my ($line_start, $level, $heading) = @{$headings[$i]};
 
@@ -164,7 +174,7 @@ sub parse_content {
         }
 
         # Build heading_path (chain of ancestor headings)
-        my $heading_path = $class->_build_heading_path(\@stack, $level, $heading);
+        my $heading_path = $class->_build_heading_path(\@stack, \%seen, $level, $heading);
 
         # Content preview
         my ($preview, $char_count) = $class->_extract_section(\@lines, $line_start, $line_end);
@@ -200,20 +210,31 @@ last line of C<$markdown>, trailing empty lines not counted. Line numbers are
 Each entry's C<heading_path> joins the headings of its open ancestors and its
 own with C<#>: a heading closes every open heading of the same or a deeper
 level, so C<# A>, C<### C>, C<## B> give C<A>, C<A#C> and C<A#B>. Duplicate
-paths are kept as they are, not made unique.
+paths are made unique by an occurrence suffix, see L</HEADING PATHS>.
 
 =cut
 
 sub _build_heading_path {
-    my ($class, $stack, $level, $heading) = @_;
+    my ($class, $stack, $seen, $level, $heading) = @_;
 
     # Entering a level closes every open heading of the same or a deeper level.
     # $stack holds the ancestors left by the previous heading, so each heading
     # costs one push and at most as many pops as were pushed before.
     pop @$stack while @$stack && $stack->[-1][0] >= $level;
-    push @$stack, [$level, $class->escape_segment($heading)];
+    my $segment = $class->escape_segment($heading);
+    my $path    = join('#', (map { $_->[1] } @$stack), $segment);
 
-    return join('#', map { $_->[1] } @$stack);
+    # The 2nd and later heading with the same path get an occurrence suffix.
+    # The segment keeps it on the stack, so the children of the 2nd "Notes"
+    # are "Page#Notes[2]#..." and not a second "Page#Notes#...".
+    my $n = ++$seen->{$path};
+    if ($n > 1) {
+        $segment .= "[$n]";
+        $path    .= "[$n]";
+    }
+    push @$stack, [$level, $segment];
+
+    return $path;
 }
 
 =method escape_segment

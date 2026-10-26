@@ -7,6 +7,11 @@
     below them change; ATX headings indented by one to three spaces are now
     headings. Setext headings stay unsupported. update_paragraph no longer
     cuts a closing fence or front matter delimiter off a page.
+  - Breaking: headings that share a heading_path are all reachable. The
+    second and later one gets a suffix on its last segment ("Page#Notes[2]",
+    "[3]", ...) in get_toc and in every tool, history tools included; the
+    first keeps its address. Before, the later ones were silently
+    unreachable and update_paragraph always edited the first.
   - A page that starts with a UTF-8 byte order mark no longer loses its
     first heading: the mark is ignored when parsing and stays in the file
     when a section is written. Pages with a mark now get the headings'
