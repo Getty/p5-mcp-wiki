@@ -1,0 +1,26 @@
+---
+claimed_at: 2026-10-26T20:15:02Z
+claimed_by: klein
+class: standard
+completed: 2026-10-26T20:15:02Z
+created: 2026-10-25T07:03:39Z
+id: 43
+priority: medium
+started: 2026-10-26T19:54:34Z
+status: done
+tags:
+- proposal
+- tool-surface
+title: 'Proposal: bound the output of list_pages and get_toc'
+updated: 2026-10-26T20:15:02Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: list_pages on 2000 pages: 83 KB, 1.1 s; 3000 pages 2.6 s (walks every directory; the old README mounted all of $HOME). get_toc on 300 headings: 86 KB (about 21k tokens), mostly previews; 8000 headings: 1.28 MB. MCP 0.15 sends each structured result twice (text + structuredContent).
+Options: (a) optional arguments with today's defaults: `prefix` (and/or `depth`) on list_pages, `max_level` and `include_preview` on get_toc; (b) hard caps with a truncation notice; (c) leave.
+Recommendation: (a); new argument names are permanent API, hence the maintainer's call.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a): optional list_pages prefix, get_toc max_level and include_preview; defaults unchanged. Branch klein.
+
+Done in bad1620 (branch klein). Own decisions: prefix is a directory (not a string prefix), same root/.git checks as page names, must exist, may not pass a symlink (list_pages enters none), empty / . / slash mean the whole wiki; include_preview false OMITS the content_preview key; max_level is validated in the handler (integer 1-6) as well as in the schema. t/61 red against the old lib, t/36 extended.
