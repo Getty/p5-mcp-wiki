@@ -1,0 +1,26 @@
+---
+claimed_at: 2026-10-26T20:15:08Z
+claimed_by: klein
+class: standard
+completed: 2026-10-26T20:15:08Z
+created: 2026-10-25T07:03:43Z
+id: 46
+priority: low
+started: 2026-10-26T19:54:39Z
+status: done
+tags:
+- proposal
+- git
+title: 'Proposal: commit restores'
+updated: 2026-10-26T20:15:08Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: restore events are excluded from auto-commit (Server.pm:593). The restored text is then committed with the next unrelated edit of that page, under that edit's message, and the restore's reason is lost.
+Options: (a) commit restores with their reason (or "Restore <heading_path> from <hash>"); (b) keep the exclusion (descriptions are fixed by the reason card).
+Recommendation: (a).
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a): commit restores with their reason, else "Restore <heading_path> from <short hash>". Branch klein.
+
+Done in 0d683d2 (branch klein). Message: reason, else 'Restore <heading_path> from <first 7 chars of commit_hash as given>'. t/53 asserted the old claim (reason is no commit message); that claim is wrong now and was replaced, not softened. t/59 red against the old lib.
