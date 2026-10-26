@@ -30,7 +30,8 @@ has wiki_root => (
 
 =attr use_git
 
-Enable git auto-commit on changes. Default: 0
+Enable git auto-commit on changes. Default: 0. See L</git_history> for what
+happens when git cannot be used.
 
 =cut
 has use_git => (
@@ -70,9 +71,13 @@ has _on_change_handlers => (
 
 =attr git_history
 
-The L<MCP::Wiki::Git::History> for C<wiki_root>, built on first use when
-C<use_git> is set and L<Git::Raw> loads; otherwise undef, and then the history
-tools answer that git history is not available and nothing is committed. An
+The L<MCP::Wiki::Git::History> for C<wiki_root>, opened when the server is
+constructed with C<use_git> set. The repository is the one C<wiki_root> lies
+in, found from there upwards, so a wiki may be a subdirectory of a repository
+or a linked worktree. When L<Git::Raw> is not installed or there is no such
+repository, the server warns once, at construction, and the attribute is undef:
+the history tools then answer that git history is not available, nothing is
+committed and no write warns again. An
 object passed to C<new> is used instead; the server calls only
 C<get_section_commits>, C<restore_section> and C<auto_commit> on it, always
 with the page name relative to C<wiki_root>.
@@ -85,14 +90,29 @@ has git_history => (
 sub _build_git_history {
     my ($self) = @_;
     return unless $self->use_git;
-    return unless eval { require Git::Raw; 1 };
-    require MCP::Wiki::Git::History;
-    return MCP::Wiki::Git::History->new(wiki_root => $self->wiki_root);
+
+    # The repository is opened now, not at the first write: a git mode that
+    # cannot be honoured is told once, at startup, and the server goes on
+    # without history and commits
+    my $history = eval {
+        require MCP::Wiki::Git::History;
+        my $history = MCP::Wiki::Git::History->new(wiki_root => $self->wiki_root);
+        $history->repo;
+        $history;
+    };
+    unless ($history) {
+        my $reason = $@ =~ s/\s+\z//r;
+        warn "Git is not available, the wiki is served without history and commits: $reason\n";
+        return;
+    }
+
+    return $history;
 }
 
 sub BUILD {
     my ($self) = @_;
     $self->_setup_tools;
+    $self->git_history if $self->use_git;
 }
 
 sub _wiki_root_path {

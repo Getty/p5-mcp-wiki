@@ -165,14 +165,18 @@ History the same name — it looks the page up in each commit's tree by that str
 - Any change to these rules changes stored addresses (see Addressing): Breaking in `Changes`.
 
 **Git and change events**
-- `git_history` is lazy: `undef` unless `use_git` is on and `eval { require Git::Raw }`
-  succeeds; the history tools then answer "Git history not available". That eval-require is
-  the sanctioned exception to `getty-perl-core`'s use-at-the-top rule — `Git::Raw` is a
-  `recommends`, never a file-level `use`. Loading `Git::Raw` before `MCP::Server`
-  (Mojolicious) segfaults on this build: one more reason it stays lazy, and why t/42 loads
-  the server first.
+- `git_history` is built in `BUILD` when `use_git` is on, and the repository is opened right
+  there: `undef` when `Git::Raw` does not load or no repository lies at or above `wiki_root`
+  (`Git::Raw::Repository->discover`: subdirectory, linked worktree). The server then
+  `warn`s once at construction and goes on; the history tools answer "Git history not
+  available" and no write warns again. History prefixes every page name with the wiki root's
+  path relative to the repository's workdir (`_repo_path`) for the tree lookup and the index;
+  the tools keep speaking wiki-relative names. The require of `Git::Raw` is the sanctioned
+  exception to `getty-perl-core`'s use-at-the-top rule — `Git::Raw` is a `recommends`, never
+  a file-level `use`. Loading `Git::Raw` before `MCP::Server` (Mojolicious) segfaults on this
+  build: why `Git::Raw` is only required at runtime, and why t/42 loads the server first.
 - Only History (and `MCP::Wiki::Git`, its deprecated subclass) calls `Git::Raw`; the Server
-  only probes with the require. `Git::Raw` takes and returns bytes: paths and commit messages
+  only asks History to open the repository. `Git::Raw` takes and returns bytes: paths and commit messages
   go in encoded as UTF-8, blob text, messages and author come out decoded.
 - A commit is signed with the repository's configured identity, else
   `MCP::Wiki <mcp-wiki@localhost>`. The first commit on an unborn branch has no parent; an
@@ -238,6 +242,8 @@ the real API (t/42, t/49–t/51, t/54, t/56) skip without it.
 | t/37 | restore writes History's document once, via a stand-in |
 | t/39 | event `page`/`from`/`to` are named as `list_pages` names them, whatever the client's spelling; each handler gets its own copy |
 | t/42 | real `Git::Raw`: commit chain, author fallback, history, restore, non-ASCII |
+| t/62 | an unusable git mode warns exactly once, at startup; later writes and history calls stay quiet |
+| t/63 | real `Git::Raw`: a wiki in a repository subdirectory and in a linked worktree commits and has history |
 | t/43 | non-ASCII names are listed as text and accepted back (`get_toc`, `get_paragraph`, `delete_page`); a name that is not valid UTF-8 is skipped with a warning |
 | t/45 | tool errors carry no absolute path and no `at FILE line N.`; an unknown `heading_path` lists the page's paths, at most 50 |
 | t/46 | declared arguments, descriptions, every tool's annotations, `serverInfo.version` = `$MCP::Wiki::VERSION` |

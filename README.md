@@ -84,8 +84,11 @@ committed too: its message is the `reason`, else `Restore <heading_path> from
 
 - `wiki_root`: Root directory for wiki pages (default: current dir)
 - `use_git`: Enable git auto-commit on changes (default: 0). Needs the optional
-  Git::Raw; without it the history tools answer "not available" and nothing is
-  committed.
+  Git::Raw and a git repository that the wiki root is, or lies in: a
+  subdirectory of the repository or a linked worktree (found from the wiki
+  root upwards; page names stay relative to the wiki root). Without either the
+  server warns once at startup and goes on without git: the history tools
+  answer "not available" and nothing is committed.
 - `commit_reason_required`: every tool that writes (`create_page`,
   `update_paragraph`, `rename_page`, `delete_page`, `restore_section`) refuses a
   call without a non-empty `reason`, and its description says so (default: 0,

@@ -47,9 +47,10 @@ reach files below this directory; a client cannot name a different one.
 
 =item B<--git>
 
-Enable git auto-commit on changes. Needs the optional Git::Raw module; without
-it nothing is committed and the history tools report that history is not
-available.
+Enable git auto-commit on changes. Needs the optional Git::Raw module and a
+git repository that the wiki root is or lies in (a subdirectory or a linked
+worktree of it). Without either, a warning is printed once at startup, nothing
+is committed and the history tools report that history is not available.
 
 =item B<--commit-reason-required>
 

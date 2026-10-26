@@ -9,7 +9,10 @@ use Encode qw( decode encode );
 
 =attr wiki_root
 
-Root directory of the wiki (must be a git repo)
+Root directory of the wiki. It is the working directory of a git repository
+or lies inside one, in a subdirectory or in a linked worktree; the repository
+is found from here upwards. Page names stay relative to this directory, in
+commits and history alike.
 
 =cut
 has wiki_root => (
@@ -19,7 +22,9 @@ has wiki_root => (
 
 =attr repo
 
-Git::Raw repository object
+Git::Raw repository object, found from C<wiki_root> upwards. Dies when
+Git::Raw is not installed and when there is no repository with a working
+directory at or above C<wiki_root>.
 
 =cut
 has repo => (
@@ -28,12 +33,48 @@ has repo => (
 
 sub _build_repo {
     my ($self) = @_;
-    my $git_dir = $self->wiki_root . '/.git';
 
-    die "Not a git repository: $git_dir" unless -d $git_dir;
-    die "Git::Raw is required for git history" unless eval { require Git::Raw; 1 };
+    # A ".git" (a directory, or a file in a linked worktree) at the wiki root
+    # or above it; looked for first, so the answer does not depend on Git::Raw
+    my $dir = eval { Path::Tiny::path($self->wiki_root)->realpath };
+    until (!$dir || -e $dir->child('.git')) {
+        $dir = $dir->is_rootdir ? undef : $dir->parent;
+    }
+    die "Not a git repository: " . $self->wiki_root . "\n" unless $dir;
 
-    return Git::Raw::Repository->open($self->wiki_root);
+    die "Git::Raw is required for git history\n" unless eval { require Git::Raw; 1 };
+
+    # The repository the wiki root lies in: its own, a parent's, or the one a
+    # linked worktree belongs to
+    my $repo = eval { Git::Raw::Repository->discover($self->wiki_root) }
+        or die "Not a git repository: " . $self->wiki_root . "\n";
+    die "Not a git repository with a working directory: " . $self->wiki_root . "\n"
+        unless defined $repo->workdir;
+
+    return $repo;
+}
+
+# The wiki root relative to the repository's working directory, ready to be
+# put in front of a page name: empty when the wiki is the repository itself,
+# else "sub/dir/". Bytes, like the root.
+has _prefix => (
+    is => 'lazy',
+);
+
+sub _build__prefix {
+    my ($self) = @_;
+
+    my $workdir = Path::Tiny::path($self->repo->workdir)->realpath;
+    my $rel = Path::Tiny::path($self->wiki_root)->realpath->relative($workdir);
+
+    return $rel eq '.' ? '' : "$rel/";
+}
+
+# A page name as the repository knows it: the wiki root's prefix and the
+# page, encoded.
+sub _repo_path {
+    my ($self, $page) = @_;
+    return $self->_prefix . encode('UTF-8', $page);
 }
 
 # Git::Raw takes and returns bytes. Strings cross that boundary encoded as
@@ -60,7 +101,7 @@ sub _head_commit {
 sub _page_text_at {
     my ($self, $commit, $page) = @_;
 
-    my $entry = $commit->tree->entry_bypath(encode('UTF-8', $page)) or return;
+    my $entry = $commit->tree->entry_bypath($self->_repo_path($page)) or return;
     my $blob = $entry->object;
     return unless $blob->is_blob;
 
@@ -307,10 +348,10 @@ sub auto_commit {
         die "auto_commit needs a path" unless defined $path && length $path;
         my $file = $root->child(encode('UTF-8', $path));
         if (-e $file || -l $file) {
-            $index->add(encode('UTF-8', $path));
+            $index->add($self->_repo_path($path));
         }
         else {
-            $index->remove(encode('UTF-8', $path));
+            $index->remove($self->_repo_path($path));
         }
     }
     $index->write;
@@ -366,7 +407,8 @@ __END__
 
 =head1 DESCRIPTION
 
-Reads and writes a wiki's history in the git repository at C<wiki_root>
+Reads and writes a wiki's history in the git repository C<wiki_root> belongs
+to (see L</wiki_root>)
 through L<Git::Raw>, which is loaded on first use. A section is found in each
 commit by its heading path: the page as it was in that commit is parsed again,
 nothing about sections is recorded in git. Page text is UTF-8, and a page

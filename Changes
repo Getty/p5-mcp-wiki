@@ -74,6 +74,13 @@
     owner of the mount and to hand a root-owned volume to uid 1000. A wiki
     root that is missing or not writable for that uid now stops the container
     with a message that says how to fix it (--user, or write access).
+  - With --git, a wiki that lies in a subdirectory of a git repository or in
+    a linked worktree gets commits and history: the repository is found from
+    the wiki root upwards, and page names stay relative to the wiki root. It
+    used to need the wiki root to hold the .git directory itself.
+  - When --git cannot be honoured (Git::Raw missing, no repository around the
+    wiki), the server says so once at startup and goes on without git, instead
+    of warning on every write.
   - bin/mcp-wiki starts with "#!/usr/bin/env perl"; installs rewrite it to the
     installing perl as before
   - restore_section writes the restored page: the document that the history
