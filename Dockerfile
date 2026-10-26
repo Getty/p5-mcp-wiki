@@ -1,58 +1,52 @@
 # syntax=docker/dockerfile:1
+#
+# Build context: the built distribution (dzil build), not the checkout.
+#   dzil build && docker build -t mcp-wiki MCP-Wiki-*/
+# dzil does this itself, for the image named by docker_image in dist.ini.
 ARG PERL_VERSION=5.40-slim
 
-# Build stage
+# Build stage: what Git::Raw needs to compile
 FROM perl:${PERL_VERSION} AS build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    cmake \
     libssl-dev \
+    pkg-config \
     zlib1g-dev \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
-# Install cpanm
-RUN cpanm --notest App::cpanminus
-
-COPY cpanfile .
-RUN cpanm --installdeps --cpanfile cpanfile --notest
+# Dependencies first, in a layer that only changes with the metadata.
+# --with-recommends brings the optional Git::Raw for the history tools.
+COPY cpanfile META.json Makefile.PL ./
+RUN cpanm --notest --installdeps --with-recommends .
 
 COPY . .
-
-# Build with dzil and install the tarball. The bundle also wires the image
-# build into dzil; inside the image there is no docker to build with.
-RUN cpanm --notest Dist::Zilla Dist::Zilla::PluginBundle::Author::GETTY Dist::Zilla::Plugin::Docker::API && \
-    DZIL_DOCKER_API_SKIP=1 dzil build && cpanm ./MCP-Wiki-*.tar.gz && rm -f ./MCP-Wiki-*.tar.gz
+RUN cpanm --notest .
 
 # Runtime stage
 FROM perl:${PERL_VERSION}
 
+# The runtime libraries of Git::Raw
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    zlib1g-dev \
-    libssl3 \
+    libssl3t64 \
     && rm -rf /var/lib/apt/lists/*
 
-# Create initial non-root user
 RUN groupadd --gid 1000 appgroup && \
     useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash appuser
 
-WORKDIR /home/appuser
-
-# Copy pre-installed modules from build
+# Everything cpanm installed: the modules and the mcp-wiki script
 COPY --from=build /usr/local/lib/perl5/site_perl /usr/local/lib/perl5/site_perl
 COPY --from=build /usr/local/bin/mcp-wiki /usr/local/bin/mcp-wiki
 
-# Copy wiki root (empty, for data persistence) and entrypoint
 COPY --from=build /build/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-RUN mkdir -p /wiki && chown -R appuser:appgroup /wiki
-
-ENV MCP_WIKI_ROOT=/wiki
-
-EXPOSE 8080
+# The wiki is the volume: mcp-wiki's default root "." is the working directory
+RUN install -d -o 1000 -g 1000 /wiki
+WORKDIR /wiki
+USER appuser
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["--wiki-root", "/wiki"]

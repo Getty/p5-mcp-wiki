@@ -56,10 +56,24 @@
     the dzil bundle at release; the second, separate build-and-push script
     and the local-only registry setting are gone
   - Docker: the entrypoint starts mcp-wiki without a shell in between, so a
-    wiki path or any argument containing spaces or quotes arrives intact; it
-    runs as the owner of the mounted wiki
+    wiki path or any argument containing spaces or quotes arrives intact
   - Docker: the image no longer pins PERL5LIB to one perl version, and
     building it no longer tries to build an image from inside the image
+  - Docker: the image is built from the built distribution, as the dzil build
+    does it, or by hand with "dzil build" and then "docker build" in the build
+    directory. Dependencies are installed in a layer of their own, no dzil,
+    cpanm or unused library goes into the image, and no port is exposed.
+  - Docker: the image contains Git::Raw, so --git commits and the history
+    tools work when the mounted directory is a git repository.
+  - Docker: the working directory is /wiki, so the default wiki root is the
+    mounted volume and "docker run -i -v DIR:/wiki raudssus/mcp-wiki --git"
+    serves DIR. The entrypoint checks the --wiki-root it was given (the last
+    one), not just /wiki.
+  - Breaking: the container always runs as uid 1000 (or the --user given) and
+    never changes the ownership of a mounted directory; it used to run as the
+    owner of the mount and to hand a root-owned volume to uid 1000. A wiki
+    root that is missing or not writable for that uid now stops the container
+    with a message that says how to fix it (--user, or write access).
   - bin/mcp-wiki starts with "#!/usr/bin/env perl"; installs rewrite it to the
     installing perl as before
   - restore_section writes the restored page: the document that the history

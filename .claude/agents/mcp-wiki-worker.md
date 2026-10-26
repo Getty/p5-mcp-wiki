@@ -41,8 +41,9 @@ arguments and dependencies differ from the code. Treat it as intent; when it con
 
 The Docker setup is settled and pinned by `t/08-docker.t`: one image, `raudssus/mcp-wiki`,
 set as `docker_image` in `dist.ini`; the bundle's `Docker::API` builds it on `dzil build`
-and pushes it on `dzil release`. The entrypoint drops root to the owner of
-`$MCP_WIKI_ROOT` via `setpriv`, with no shell in between. Changing registry or build path is
+and pushes it on `dzil release`. The image installs the built dist (no
+dzil inside), runs as uid 1000 and never chowns; the entrypoint checks that the effective
+`--wiki-root` is writable and starts mcp-wiki with no shell in between. Changing registry or build path is
 the maintainer's call. Build without a container engine with `DZIL_DOCKER_API_SKIP=1`;
 never run `dzil release` or `docker push`.
 

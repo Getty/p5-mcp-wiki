@@ -9,10 +9,20 @@ docker run -i --rm -v /path/to/wiki:/wiki raudssus/mcp-wiki
 ```
 
 The server speaks MCP over stdin/stdout (hence `-i`) and serves the mounted
-`/wiki`. Started as root (the default), it drops to the owner of that
-directory. Arguments replace the default `--wiki-root /wiki`, so repeat it
-when adding options. The image does not include the optional Git::Raw, so
-the history tools answer "not available" there.
+`/wiki`, the image's working directory and so the default wiki root. Options
+go after the image name: `docker run -i --rm -v /path/to/wiki:/wiki
+raudssus/mcp-wiki --git` commits every change and serves the history tools.
+The mount must hold the git repository; for a wiki in a subdirectory of it,
+mount the repository and add `--wiki-root /wiki/subdirectory`.
+
+The container runs as uid 1000 and never changes the ownership of what you
+mount. When `/wiki` (or the directory given by `--wiki-root`) is not writable
+for that uid, it stops with a message saying so; fix it with `--user UID:GID`
+of the directory's owner, or by giving uid 1000 write access.
+
+The image is built from the built distribution, not from the checkout:
+`dzil build` does it, or by hand `dzil build` and then `docker build` in the
+build directory (`MCP-Wiki-*/`).
 
 ## Install with Perl
 

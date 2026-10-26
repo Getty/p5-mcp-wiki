@@ -210,9 +210,15 @@ History the same name — it looks the page up in each commit's tree by that str
 
 One image, `raudssus/mcp-wiki`, named by `docker_image` in `dist.ini`. The bundle's
 `Docker::API` builds it on every `dzil build`/`dzil test` (`DZIL_DOCKER_API_SKIP=1` skips)
-and pushes it on `dzil release` — publish gate. The entrypoint drops root to the owner of
-`$MCP_WIKI_ROOT` via `setpriv`, no shell in between, so arguments arrive unsplit. t/08 pins
-this; changing the registry or the build path is the maintainer's decision.
+and pushes it on `dzil release` — publish gate. The build context is the **built dist**
+(no `.git`), so the Dockerfile installs it with `cpanm` — `--installdeps --with-recommends .`
+as a cached layer (this is what brings Git::Raw into the image), then `cpanm .`; there is no
+dzil in the image. `WORKDIR /wiki` is mcp-wiki's default root `.`; the image runs as
+`appuser` (1000) and never chowns. The entrypoint takes the effective `--wiki-root` (the last
+one, else `/wiki`), stops with a message when it is missing or not writable for the uid, and
+`exec`s mcp-wiki with no shell in between, so arguments arrive unsplit. t/08 pins this;
+changing the registry or the build path is the maintainer's decision. To test an image
+without tagging `raudssus/`, temporarily point `docker_image` at a throwaway name.
 
 ## Verification
 
@@ -225,7 +231,8 @@ the real API (t/42, t/49–t/51, t/54, t/56) skip without it.
 | t/05 | cpanfile matches what `lib/` and `bin/` load; `Git::Raw` stays `recommends`; minimum perl 5.020 or later |
 | t/06 | README tool table = registered schemas (required/optional); bin POD = `GetOptions` |
 | t/07 | no `update_content_hash`, history JSON file, `Digest::SHA`, `to_json`, `Types::Standard` |
-| t/08 | Docker setup and the single registry |
+| t/08 | Docker setup and the single registry; the entrypoint's effective wiki root and its not-writable stop |
+| t/09 | what `dist.ini` keeps out of the tarball (agent and repo files) and what stays |
 | t/34 | request level: `tools/list` schemas = the registered ones; a missing required argument is refused with -32602 |
 | t/36 | every tool stays inside the root — extend it for every new tool |
 | t/37 | restore writes History's document once, via a stand-in |
