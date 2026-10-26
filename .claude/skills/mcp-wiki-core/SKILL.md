@@ -142,7 +142,8 @@ History the same name — it looks the page up in each commit's tree by that str
 - Line-based, with the CommonMark rules for what hides a heading; the rules live in the POD of
   `MCP::Wiki::TOC::Parser` (HEADING RECOGNITION, HEADING PATHS) — keep them there, not here.
   A heading is an ATX line with 0–3 spaces of indent; a closing `#` run counts only after
-  whitespace (`# C#` stays `C#`). Skipped: leading front matter, ```` ``` ```` and `~~~`
+  whitespace (`# C#` stays `C#`). A leading U+FEFF is dropped by the parse only; `Document`
+  keeps it in the page text, so writes keep it. Skipped: leading front matter, ```` ``` ```` and `~~~`
   fences (CommonMark opener/closer), HTML comment blocks, lines indented 4+ spaces. Setext
   headings are unsupported.
 - Segments of a `heading_path` are escaped (`\` → `\\`, `#` → `\#`, trailing `[digits]` →

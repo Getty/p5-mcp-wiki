@@ -30,6 +30,11 @@ ordinary text.
 
 =item *
 
+A leading byte order mark (U+FEFF) is ignored for the parse: C<\x{FEFF}# Title>
+is the heading C<Title>.
+
+=item *
+
 Fenced code blocks of C<```> or C<~~~>. The opening fence is indented by at
 most three spaces; a backtick fence has no backtick in its info string
 (C<```inline```> opens nothing). The closing fence uses the same character, is
@@ -81,6 +86,9 @@ text. Dies when the file cannot be read.
 sub parse_content {
     my ($class, $content) = @_;
 
+    # A byte order mark is no part of the first line's text. Only the parse
+    # drops it; Document keeps it in the page, so a write leaves it in place.
+    $content =~ s/\A\x{FEFF}//;
     my @lines = split /\n/, $content;
     my @headings;  # [line_number, level, heading_text]
 

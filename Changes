@@ -7,6 +7,10 @@
     below them change; ATX headings indented by one to three spaces are now
     headings. Setext headings stay unsupported. update_paragraph no longer
     cuts a closing fence or front matter delimiter off a page.
+  - A page that starts with a UTF-8 byte order mark no longer loses its
+    first heading: the mark is ignored when parsing and stays in the file
+    when a section is written. Pages with a mark now get the headings'
+    real addresses ("Title#Sub", not "Sub").
   - Breaking: a closing run of # ends a heading's text only after whitespace,
     so "# C#" is "C#" (it was "C"). In a heading_path, "\" and "#" inside a
     heading's text are written "\\" and "\#", and a text ending in "[digits]"
