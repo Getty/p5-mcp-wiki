@@ -1,0 +1,27 @@
+---
+claimed_at: 2026-10-26T20:10:45Z
+claimed_by: kopf
+class: standard
+completed: 2026-10-26T20:10:45Z
+created: 2026-10-25T07:03:35Z
+id: 39
+priority: medium
+started: 2026-10-26T20:07:59Z
+status: done
+tags:
+- proposal
+- parser
+- encoding
+title: 'Proposal: a UTF-8 BOM hides the first heading'
+updated: 2026-10-26T20:10:45Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: "\xEF\xBB\xBF# Title\nintro\n## Sub" gives a TOC with only "Sub", addressed "Sub" (should be "Title#Sub"); the intro is unaddressable (regex at Parser.pm:167).
+Options: (a) strip a leading U+FEFF before parsing and keep it on write; (b) leave and document.
+Recommendation: (a); it changes heading_paths on BOM pages only and belongs in the heading-recognition ADR.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a): strip a leading U+FEFF before parsing, keep it on write. Branch kopf.
+
+Done in b6be2fd. Decision: the BOM is dropped by the parse only and stays in the page text, so writes keep it byte for byte without touching Document.
