@@ -47,8 +47,8 @@ error messages; confinement is the Server's job. The Server never uses `MCP::Wik
 
 | Tool | Arguments (`[optional]`) | Event (keys besides `type`) |
 |------|--------------------------|-----------------------------|
-| `list_pages` | — | — |
-| `get_toc` | `page` | — |
+| `list_pages` | `[prefix]` | — |
+| `get_toc` | `page`, `[max_level]`, `[include_preview]` | — |
 | `get_paragraph` | `page`, `heading_path` | — |
 | `create_page` | `page`, `[content]`, `[reason]` | `create` {page, reason} |
 | `update_paragraph` | `page`, `heading_path`, `content`, `[reason]` | `update` {page, heading_path, reason} |
@@ -89,7 +89,11 @@ History the same name — it looks the page up in each commit's tree by that str
   going out (`list_pages`, `_page_name`) are decoded; History encodes before touching disk.
 - `list_pages` lists exactly the names `_resolve_page` accepts; it enters neither `.git`
   nor directory symlinks, and skips a name that is not valid UTF-8 or a subdirectory it
-  cannot read with a `warn` (an unreadable root is still an error).
+  cannot read with a `warn` (an unreadable root is still an error). Its optional `prefix`
+  is a directory, walked by `_walk_page($prefix, 1)` (same root and `.git` checks; it must
+  exist, may be the root, may not pass a symlink); the listing descends only there
+  (t/61, t/36). `get_toc`'s `max_level` (1–6) and `include_preview` only shorten the
+  answer: `heading_path`s are not touched, a hidden section stays addressable.
 - `wiki_root` defaults to `.`: the server writes into the directory it was started from.
   Exercise writing tools only against a `Path::Tiny` tempdir.
 - Register tools through `_add_tool`, never `$self->server->tool` directly: the wrapper

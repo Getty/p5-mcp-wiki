@@ -28,6 +28,11 @@
     has that "[" written "\[": the heading "A#B" and the pair "A" > "B" no
     longer share an address. MCP::Wiki::TOC::Parser gets escape_segment and
     split_heading_path for the two directions.
+  - list_pages and get_toc can be asked for less: list_pages takes an optional
+    prefix, a directory, and lists and walks only that one; get_toc takes
+    max_level (1-6) to leave out deeper headings and include_preview (false
+    drops content_preview). Without them the answers are as before, and no
+    heading_path changes
   - commit_reason_required (--commit-reason-required) now works: every tool
     that writes refuses a call without a non-empty reason and says so in its
     description. rename_page and delete_page take an optional reason for

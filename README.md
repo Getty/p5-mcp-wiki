@@ -55,8 +55,8 @@ chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
 
 | Tool | Required | Optional | Description |
 |------|----------|----------|-------------|
-| `list_pages` | | | List all wiki pages |
-| `get_toc` | `page` | | Get table of contents for a page |
+| `list_pages` | | `prefix` | List all wiki pages, or only those below the directory `prefix` |
+| `get_toc` | `page` | `max_level`, `include_preview` | Get table of contents for a page; `max_level` (1-6) cuts deeper headings, `include_preview` false drops the previews |
 | `get_paragraph` | `page`, `heading_path` | | Get the body of the section under a heading path (heading line not included) |
 | `create_page` | `page` | `content`, `reason` | Create a new wiki page; fails if it exists, default content `# <name>`, the file name without `.md` |
 | `update_paragraph` | `page`, `heading_path`, `content` | `reason` | Replace a section's body; the heading line stays |

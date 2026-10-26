@@ -144,8 +144,13 @@ sub _resolve_page {
 # The walk of _resolve_page. In list context it also says whether the name
 # itself, its last component, is a symlink: rename and delete refuse such a
 # name, because the path they get is the link's target.
+#
+# With $as_dir the name is a directory (the prefix of list_pages): it gets the
+# same walk and the same checks for the root and ".git", but must be an
+# existing directory, may be the root, and may not go through a symlink,
+# because list_pages enters none.
 sub _walk_page {
-    my ($self, $page) = @_;
+    my ($self, $page, $as_dir) = @_;
 
     croak 'Page name required' unless defined $page && !ref $page && length $page;
     croak 'Invalid page name' if $page =~ /\0/;
@@ -157,6 +162,7 @@ sub _walk_page {
         next if $part eq '' || $part eq '.';
         $path = $part eq '..' ? $path->parent : $path->child($part);
         $is_link = $part ne '..' && -l $path ? 1 : 0;
+        croak "Directory goes through a symlink: $page" if $as_dir && $is_link;
         if (-l $path || -e $path) {
             $path = eval { $path->realpath }
                 or croak "Cannot resolve page path: $page";
@@ -168,6 +174,11 @@ sub _walk_page {
         croak "Not a wiki page (inside .git): $page"
             if grep { $self->_is_git_dir_name($_) }
                 $part, split m{/}, $path->relative($root);
+    }
+
+    if ($as_dir) {
+        croak "Not a directory: $page" unless -d $path;
+        return ($path, 0);
     }
 
     # The root itself is a directory, never a page.
@@ -207,16 +218,21 @@ sub _page_name {
 # one that is not valid UTF-8 cannot be sent back and is skipped with a warning.
 # So is a directory below the root that cannot be read, such as a root-only
 # lost+found; only an unreadable root fails the listing.
+#
+# With a $prefix, a directory relative to the root, only that directory is
+# walked and listed; it is checked like a page name.
 sub _list_pages {
-    my ($self) = @_;
+    my ($self, $prefix) = @_;
 
     my $root = $self->_wiki_root_path;
+    my $start = defined $prefix && length $prefix
+        ? ($self->_walk_page($prefix, 1))[0] : $root;
     my @pages;
-    my @dirs = ($root);
+    my @dirs = ($start);
     while (my $dir = shift @dirs) {
         my @children = eval { $dir->children };
         if (my $err = $@) {
-            die $err if $dir eq $root;
+            die $err if $dir eq $start;
             warn 'list_pages: skipping directory '.$dir->relative($root).': '
                 .(ref $err && $err->{err} ? $err->{err} : $err)."\n";
             next;
@@ -408,14 +424,20 @@ sub _setup_tools {
     # Tool: list_pages
     $self->_add_tool(
         name        => 'list_pages',
-        description => 'List all wiki pages (.md files) below the wiki root',
+        description => 'List all wiki pages (.md files) below the wiki root, or with prefix'
+            .' only those below one directory',
         annotations => $self->_annotations(read_only => 1),
         input_schema => {
             type => 'object',
-            properties => {},
+            properties => {
+                prefix => {
+                    type => 'string',
+                    description => 'Only list pages below this directory (path relative to the wiki root, e.g. "projects/alpha"); the walk descends nowhere else. Default: the whole wiki',
+                },
+            },
         },
         code => sub ($tool, $args) {
-            my $pages = eval { $self->_list_pages }
+            my $pages = eval { $self->_list_pages($args->{prefix}) }
                 or return $tool->text_result("Cannot list pages: $@", 1);
 
             return $tool->structured_result({
@@ -431,7 +453,8 @@ sub _setup_tools {
         description => 'Get the table of contents of a wiki page: every heading with its level,'
             .' heading_path and line range. heading_path is the address of a section that'
             .' the other tools take; the line numbers are only valid for the page as this'
-            .' call read it and change with any edit.',
+            .' call read it and change with any edit. A long page gives a long answer:'
+            .' max_level and include_preview shorten it without changing any heading_path.',
         annotations => $self->_annotations(read_only => 1),
         input_schema => {
             type => 'object',
@@ -440,10 +463,24 @@ sub _setup_tools {
                     type => 'string',
                     description => 'Page name (path of a .md file relative to the wiki root)',
                 },
+                max_level => {
+                    type => 'integer',
+                    minimum => 1,
+                    maximum => 6,
+                    description => 'Only list headings down to this level (1-6); deeper sections stay addressable by their heading_path. Default: all levels',
+                },
+                include_preview => {
+                    type => 'boolean',
+                    description => 'Include content_preview in every entry. Default: true; false leaves it out',
+                },
             },
             required => ['page'],
         },
         code => sub ($tool, $args) {
+            my $max_level = $args->{max_level};
+            return $tool->text_result('Invalid max_level: an integer from 1 to 6', 1)
+                if defined $max_level && (ref $max_level || $max_level !~ /\A[1-6]\z/);
+
             my $doc = eval { $self->_create_document($args->{page}) };
             if ($@) {
                 return $tool->text_result("Invalid page: $@", 1);
@@ -454,9 +491,15 @@ sub _setup_tools {
                 return $tool->text_result("Cannot read page: $@", 1);
             }
 
+            @toc = grep { $_->level <= $max_level } @toc if defined $max_level;
+            my @entries = map { $_->as_hash } @toc;
+            if (exists $args->{include_preview} && !$args->{include_preview}) {
+                delete $_->{content_preview} for @entries;
+            }
+
             return $tool->structured_result({
                 page => $args->{page},
-                entries => [map { $_->as_hash } @toc],
+                entries => \@entries,
             });
         },
     );
@@ -972,14 +1015,22 @@ C<get_toc> reports are only valid for the page as that call read it.
 
 =over 4
 
-=item C<list_pages>
+=item C<list_pages> (optional C<prefix>)
 
-All pages below C<wiki_root>, sorted, and their count.
+All pages below C<wiki_root>, sorted, and their count. With C<prefix>, a
+directory relative to the root such as C<projects/alpha>, only the pages below
+it, still named relative to the root; the walk enters no other directory. The
+prefix is checked like a page name (it may not leave the root, name C<.git> or
+go through a symlink) and has to be an existing directory.
 
-=item C<get_toc> (C<page>)
+=item C<get_toc> (C<page>, optional C<max_level>, C<include_preview>)
 
 Every heading of the page: level, heading, anchor, C<heading_path>, line range,
-a preview of the section and its length in characters.
+a preview of the section and its length in characters. C<max_level> (1 to 6)
+leaves out the headings below that level; they stay addressable by their
+C<heading_path>, which this does not change. C<include_preview> false leaves
+C<content_preview> out of every entry. Both only make a long answer shorter;
+without them the answer is the full table of contents.
 
 =item C<get_paragraph> (C<page>, C<heading_path>)
 

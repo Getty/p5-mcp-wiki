@@ -538,6 +538,25 @@ subtest 'list_pages lists exactly the pages the other tools accept' => sub {
     }
 };
 
+subtest 'the prefix of list_pages is held to the same boundary' => sub {
+    my $f = fixture();
+
+    rejected_ok( $f, 'list_pages', { prefix => '..' },                   'root parent' );
+    rejected_ok( $f, 'list_pages', { prefix => '../elsewhere' },         'directory outside' );
+    rejected_ok( $f, 'list_pages', { prefix => '../wiki-evil' },         'sibling sharing the root name' );
+    rejected_ok( $f, 'list_pages', { prefix => 'sub/../..' },            'dot-dot detour' );
+    rejected_ok( $f, 'list_pages', { prefix => '.git' },                 'repository' );
+    rejected_ok( $f, 'list_pages', { prefix => 'sub/.GIT' },             'repository in another case' );
+    rejected_ok( $f, 'list_pages', { prefix => 'page.md' },              'a page is no directory' );
+    if ($can_symlink) {
+        rejected_ok( $f, 'list_pages', { prefix => 'out' },       'directory symlink leaving' );
+        rejected_ok( $f, 'list_pages', { prefix => 'twin' },      'directory symlink to the sibling' );
+        rejected_ok( $f, 'list_pages', { prefix => 'gitlink' },   'directory symlink into the repository' );
+    }
+    my ($result) = call( $f->{server}, 'list_pages', { prefix => 'sub' } );
+    is_deeply( $result->{structuredContent}{pages}, ['sub/inner.md'], 'a directory inside is listed' );
+};
+
 subtest 'page must name something below the root' => sub {
     my $f = fixture();
 
