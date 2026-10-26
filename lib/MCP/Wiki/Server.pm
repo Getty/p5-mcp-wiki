@@ -460,8 +460,8 @@ sub _setup_tools {
     $self->_add_tool(
         name        => 'create_page',
         description => 'Create a new wiki page. Fails if a page of that name already exists.'
-            .' Without content the page gets the default content "# <page>", a heading'
-            .' made of the page name.',
+            .' Without content the page gets the default content "# <name>", a heading'
+            .' made of the file name without ".md" (not of the directories).',
         annotations => $self->_annotations(),
         input_schema => {
             type => 'object',
@@ -491,7 +491,8 @@ sub _setup_tools {
 
             my $created = eval {
                 $page_path->parent->mkpath;
-                $self->_create_exclusive($page_path, $args->{content} // "# $args->{page}\n");
+                my $title = decode('UTF-8', $page_path->basename =~ s/\.md\z//ir);
+                $self->_create_exclusive($page_path, $args->{content} // "# $title\n");
             };
             return $tool->text_result("Create failed: $@", 1) unless defined $created;
             return $tool->text_result("Page already exists: $args->{page}", 1) unless $created;
@@ -927,7 +928,9 @@ line range. An unknown C<heading_path> is answered with the ones the page has.
 =item C<create_page> (C<page>, optional C<content>, C<reason>)
 
 Creates the page and any missing directories. Fails if the page exists; without
-C<content> the page starts as C<# page-name>.
+C<content> the page starts with a heading made of the file name without
+C<.md>: C<# c> for C<a/b/c.md>. Directories that a rename or delete leaves empty
+stay.
 
 =item C<update_paragraph> (C<page>, C<heading_path>, C<content>, optional C<reason>)
 

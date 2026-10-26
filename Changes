@@ -28,6 +28,9 @@
     has that "[" written "\[": the heading "A#B" and the pair "A" > "B" no
     longer share an address. MCP::Wiki::TOC::Parser gets escape_segment and
     split_heading_path for the two directions.
+  - create_page without content starts the page with the file name without
+    ".md" as its heading ("# c" for a/b/c.md), no longer the whole path;
+    directories that a rename or delete empties stay
   - Docker: one image, raudssus/mcp-wiki on Docker Hub, built and pushed by
     the dzil bundle at release; the second, separate build-and-push script
     and the local-only registry setting are gone
