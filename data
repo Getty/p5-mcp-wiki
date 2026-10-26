@@ -1,0 +1,27 @@
+---
+claimed_at: 2026-10-26T20:10:51Z
+claimed_by: kopf
+class: standard
+completed: 2026-10-26T20:10:51Z
+created: 2026-10-25T07:03:36Z
+id: 40
+priority: low
+started: 2026-10-26T20:08:04Z
+status: done
+tags:
+- proposal
+- toc
+title: 'Proposal: TOC value semantics - anchors drop non-ASCII; preview/char_count
+  include the heading'
+updated: 2026-10-26T20:10:51Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: anchors: "Über Größe" gives "ber-gr-e", "日本語 🚀" gives "", duplicates get no suffix (Parser.pm:229-231). content_preview/char_count include the heading line while get_paragraph's content excludes it.
+Options: (a) GitHub-style Unicode slug with -1/-2 suffixes; (b) leave anchors; for preview/char_count: (c) body-only values, (d) document as is (done in the skill/POD).
+Recommendation: (a) + (d); anchors are part of get_toc's wire form, so announce in Changes.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): options (a) + (d): GitHub-style Unicode anchors with -1/-2 suffixes; preview/char_count stay as documented. Branch kopf.
+
+Done in 422cc31. Decision: spec'd slug exactly (no collapsing of hyphens, trailing hyphen kept, e.g. '日本語 🚀' -> '日本語-'); repeat suffix avoids already-used anchors.
