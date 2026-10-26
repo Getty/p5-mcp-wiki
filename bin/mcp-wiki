@@ -53,7 +53,8 @@ available.
 
 =item B<--commit-reason-required>
 
-Accepted, but currently has no effect: a missing reason is not rejected.
+Every tool that writes refuses a call without a non-empty C<reason> and says so
+in its description. Without this option the reason stays optional.
 
 =item B<--help>
 

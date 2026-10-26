@@ -40,8 +40,10 @@ has use_git => (
 
 =attr commit_reason_required
 
-Accepted, but currently has no effect: a missing reason is not rejected.
-Default: 0
+Every tool that writes (C<create_page>, C<update_paragraph>, C<rename_page>,
+C<delete_page>, C<restore_section>) refuses a call without a non-empty
+C<reason> with an error result, and its description says so. Without it
+C<reason> stays optional. Default: 0
 
 =cut
 has commit_reason_required => (
@@ -303,12 +305,31 @@ sub _add_tool {
     my $code = delete $spec{code};
     my $name = $spec{name};
 
+    # With commit_reason_required every tool that writes refuses a call
+    # without a reason, and its description says so. A tool writes unless its
+    # annotations call it read-only.
+    my $needs_reason = $self->commit_reason_required
+        && !$spec{annotations}{readOnlyHint};
+    if ($needs_reason) {
+        $spec{description} .= ' A non-empty reason is required (this server was started'
+            .' with commit_reason_required).';
+        my $reason = $spec{input_schema}{properties}{reason};
+        $reason->{description} .= ' - required on this server' if $reason;
+    }
+
     return $self->server->tool(
         %spec,
         code => sub ($tool, $args) {
             return $tool->text_result(
                 'root_dir is not supported: the wiki root is fixed when the server starts', 1
             ) if ref $args eq 'HASH' && exists $args->{root_dir};
+
+            return $tool->text_result(
+                "A reason is required: $name was called without a non-empty reason,"
+                .' and this server was started with commit_reason_required', 1
+            ) if $needs_reason
+                && !(ref $args eq 'HASH' && defined $args->{reason} && !ref $args->{reason}
+                    && $args->{reason} =~ /\S/);
 
             my $result;
             eval { $result = $code->($tool, $args); 1 }
@@ -605,6 +626,10 @@ sub _setup_tools {
                     type => 'string',
                     description => 'New page name (path of a .md file relative to the wiki root, can include subdirectories)',
                 },
+                reason => {
+                    type => 'string',
+                    description => 'Reason for the rename (used as git commit message if git is enabled)',
+                },
             },
             required => ['from', 'to'],
         },
@@ -633,6 +658,7 @@ sub _setup_tools {
                 type   => 'rename',
                 from   => $self->_page_name($from_path),
                 to     => $self->_page_name($to_path),
+                (defined $args->{reason} ? (reason => $args->{reason}) : ()),
             });
 
             return $tool->structured_result({
@@ -656,6 +682,10 @@ sub _setup_tools {
                     type => 'string',
                     description => 'Page name to delete (path of a .md file relative to the wiki root)',
                 },
+                reason => {
+                    type => 'string',
+                    description => 'Reason for the deletion (used as git commit message if git is enabled)',
+                },
             },
             required => ['page'],
         },
@@ -673,6 +703,7 @@ sub _setup_tools {
             $self->_fire_on_change({
                 type => 'delete',
                 page => $self->_page_name($page_path),
+                (defined $args->{reason} ? (reason => $args->{reason}) : ()),
             });
 
             return $tool->structured_result({
@@ -822,7 +853,8 @@ sub _build_server {
 Registers a handler, called after a writing tool changed a page. Every handler
 gets a hash reference of its own: C<type> (C<create>, C<update>, C<rename>,
 C<delete> or C<restore>) and, by type, C<page>, C<heading_path>, C<reason>,
-C<commit_hash>, or C<from> and C<to> for a rename. Page names are relative to
+C<commit_hash>, or C<from> and C<to> for a rename. A rename or delete carries
+C<reason> only when the call gave one. Page names are relative to
 C<wiki_root>, the way C<list_pages> shows them, whatever spelling the client
 used: C<sub/./a.md> arrives as C<sub/a.md>, a symlink as the page it points
 to. A handler that dies is warned about; the change stands.
@@ -965,12 +997,12 @@ stay.
 
 Replaces the section's body; its heading line stays.
 
-=item C<rename_page> (C<from>, C<to>)
+=item C<rename_page> (C<from>, C<to>, optional C<reason>)
 
 Renames or moves a page, creating missing directories. Never replaces an
 existing page. Refuses a name that is itself a symlink.
 
-=item C<delete_page> (C<page>)
+=item C<delete_page> (C<page>, optional C<reason>)
 
 Deletes the page. Refuses a name that is itself a symlink.
 

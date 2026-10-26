@@ -52,8 +52,8 @@ error messages; confinement is the Server's job. The Server never uses `MCP::Wik
 | `get_paragraph` | `page`, `heading_path` | — |
 | `create_page` | `page`, `[content]`, `[reason]` | `create` {page, reason} |
 | `update_paragraph` | `page`, `heading_path`, `content`, `[reason]` | `update` {page, heading_path, reason} |
-| `rename_page` | `from`, `to` | `rename` {from, to} — no `page` key |
-| `delete_page` | `page` | `delete` {page} |
+| `rename_page` | `from`, `to`, `[reason]` | `rename` {from, to, reason only when given} — no `page` key |
+| `delete_page` | `page`, `[reason]` | `delete` {page, reason only when given} |
 | `get_section_history` | `page`, `heading_path` | — |
 | `restore_section` | `page`, `heading_path`, `commit_hash`, `[reason]` | `restore` {page, heading_path, commit_hash, reason} |
 
@@ -192,8 +192,14 @@ History the same name — it looks the page up in each commit's tree by that str
   asked), hands History the LF text, writes the complete document History returns with
   `Document::write_text` and fires `restore`. Only History patches.
 
+- `commit_reason_required` (`--commit-reason-required`): `_add_tool` refuses a call to any
+  tool whose annotations are not read-only unless `reason` has visible text, answering
+  with an error result before the handler runs, and appends that rule to the tool's and
+  the `reason` argument's description. The schema keeps `reason` out of `required`, so
+  the refusal is a tool result a model can act on (t/60). A new writing tool therefore
+  needs an optional `reason` argument.
+
 **Declared, not built**
-- `commit_reason_required` (`--commit-reason-required`) is accepted and never read.
 - `PLAN.md` is the original draft; where it contradicts `lib/`, `lib/` wins.
 
 ## Docker

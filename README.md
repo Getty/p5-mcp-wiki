@@ -60,8 +60,8 @@ chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
 | `get_paragraph` | `page`, `heading_path` | | Get the body of the section under a heading path (heading line not included) |
 | `create_page` | `page` | `content`, `reason` | Create a new wiki page; fails if it exists, default content `# <name>`, the file name without `.md` |
 | `update_paragraph` | `page`, `heading_path`, `content` | `reason` | Replace a section's body; the heading line stays |
-| `rename_page` | `from`, `to` | | Rename/move a page |
-| `delete_page` | `page` | | Delete a page |
+| `rename_page` | `from`, `to` | `reason` | Rename/move a page |
+| `delete_page` | `page` | `reason` | Delete a page |
 | `get_section_history` | `page`, `heading_path` | | Get git history for a section (needs `use_git` and Git::Raw) |
 | `restore_section` | `page`, `heading_path`, `commit_hash` | `reason` | Restore a section from a git commit (needs `use_git` and Git::Raw) |
 
@@ -76,7 +76,10 @@ committed too: its message is the `reason`, else `Restore <heading_path> from
 - `use_git`: Enable git auto-commit on changes (default: 0). Needs the optional
   Git::Raw; without it the history tools answer "not available" and nothing is
   committed.
-- `commit_reason_required`: accepted (default: 0) but currently has no effect.
+- `commit_reason_required`: every tool that writes (`create_page`,
+  `update_paragraph`, `rename_page`, `delete_page`, `restore_section`) refuses a
+  call without a non-empty `reason`, and its description says so (default: 0,
+  `reason` stays optional).
 
 On the command line these are `--wiki-root`, `--git` and
 `--commit-reason-required`.

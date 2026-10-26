@@ -28,6 +28,11 @@
     has that "[" written "\[": the heading "A#B" and the pair "A" > "B" no
     longer share an address. MCP::Wiki::TOC::Parser gets escape_segment and
     split_heading_path for the two directions.
+  - commit_reason_required (--commit-reason-required) now works: every tool
+    that writes refuses a call without a non-empty reason and says so in its
+    description. rename_page and delete_page take an optional reason for
+    this (also used as the git commit message and passed to on_change
+    handlers when given)
   - With use_git, restore_section is committed like every other write, with
     its reason as message, else "Restore <heading_path> from <short hash>".
     The restored text used to be committed later with an unrelated edit of
