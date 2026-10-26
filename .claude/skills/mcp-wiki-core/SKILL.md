@@ -151,6 +151,8 @@ History the same name — it looks the page up in each commit's tree by that str
 - Segments of a `heading_path` are escaped (`\` → `\\`, `#` → `\#`, trailing `[digits]` →
   `\[digits]`) by `Parser::escape_segment`; `split_heading_path` is the inverse. Lookups
   compare whole path strings, so the tools never split.
+- Anchors are GitHub-style (Unicode letters/digits, spaces → `-`, repeats `-1`, `-2`); they are
+  part of `get_toc`'s wire form but not an address.
 - Any change to these rules changes stored addresses (see Addressing): Breaking in `Changes`.
 
 **Git and change events**

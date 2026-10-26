@@ -25,7 +25,9 @@ has heading => (
 
 =attr anchor
 
-URL-safe anchor (derived from heading)
+GitHub-style anchor derived from the heading: lower case, everything except
+letters (any script), digits, spaces, C<-> and C<_> dropped, each space a
+C<->. The second and later equal anchor of a page gets C<-1>, C<-2> ...
 
 =cut
 has anchor => (

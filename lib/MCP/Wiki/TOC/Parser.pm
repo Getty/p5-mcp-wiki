@@ -162,6 +162,7 @@ sub parse_content {
     my @entries;
     my @stack;    # [level, heading] of the open ancestors, carried across headings
     my %seen;     # path => how many headings have had it so far
+    my %anchors;  # every anchor handed out so far
     for my $i (0 .. $#headings) {
         my ($line_start, $level, $heading) = @{$headings[$i]};
 
@@ -180,7 +181,7 @@ sub parse_content {
         my ($preview, $char_count) = $class->_extract_section(\@lines, $line_start, $line_end);
 
         # URL-safe anchor
-        my $anchor = $class->_make_anchor($heading);
+        my $anchor = $class->_make_anchor(\%anchors, $heading);
 
         push @entries, MCP::Wiki::TOC::Entry->new(
             level           => $level,
@@ -285,11 +286,21 @@ sub split_heading_path {
     return ([ map { join '', map { $_->[0] } @$_ } @segments ], $occurrence);
 }
 
+# GitHub-style: lower case, everything but letters, digits, spaces, "-" and "_"
+# dropped, each space a "-". The 2nd and later equal anchor gets -1, -2, ...
+# ($used holds every anchor handed out so far, a suffixed one included).
 sub _make_anchor {
-    my ($class, $heading) = @_;
+    my ($class, $used, $heading) = @_;
     my $anchor = lc $heading;
-    $anchor =~ s/[^a-z0-9]+/-/g;
-    $anchor =~ s/^-|-$//g;
+    $anchor =~ s/[^\p{L}\p{N} _-]//g;
+    $anchor =~ s/ /-/g;
+
+    if ($used->{$anchor}++) {
+        my $n = 1;
+        $n++ while $used->{"$anchor-$n"};
+        $used->{"$anchor-$n"} = 1;
+        $anchor .= "-$n";
+    }
     return $anchor;
 }
 
