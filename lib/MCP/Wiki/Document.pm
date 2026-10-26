@@ -208,7 +208,10 @@ C<heading_path>; empty or missing is the top level, level 1) and the optional
 C<content> as its body. Without C<before> it becomes the last child of
 C<parent>, after the whole subtree of the parent; C<before> is the
 C<heading_path> of a direct child of C<parent> to insert in front of instead.
-Blank lines are added where they keep it apart from its neighbours.
+No other section changes, not by a byte (their hashes stay): when a heading
+follows the new section, one blank line ends it, as part of the new section;
+the only edit elsewhere is the line ending of a last line that lacked one.
+C<delete_section> of the new section restores the page as it was.
 
 Dies, writing nothing, when the parent or C<before> does not exist, when
 C<before> is no direct child of the parent, when the level would be 7 or a
@@ -256,7 +259,11 @@ sub add_section {
     my @lines  = split /\n/, $text, -1;
     my $had_nl = @lines && $lines[-1] eq '';
     pop @lines if $had_nl;
+
+    # By default at the end of the page, but in front of its trailing blank
+    # lines: they stay where they are, after the last section
     my $pos = @lines;
+    $pos-- while $pos > 0 && $lines[$pos - 1] !~ /\S/;
 
     if (defined $before) {
         my $sibling = $by_path{$before} or die "Heading not found: $before";
@@ -275,16 +282,16 @@ sub add_section {
 
     my @block = ('#' x $level.' '.$heading,
         (defined $content && length $content ? split(/\n/, $content, -1) : ()));
-    my $lead = $pos > 0 && $lines[$pos - 1] =~ /\S/ ? 1 : 0;
-    unshift @block, '' if $lead;
-    push @block, '' if $pos < @lines;
+    # No other section changes by a byte: the separating blank line, if the
+    # new section is followed by a heading, is the new section's own last line
+    push @block, '' if $pos < @lines && $lines[$pos] =~ /\S/;
     splice @lines, $pos, 0, @block;
     my $new_text = join("\n", @lines).($had_nl || !length $text ? "\n" : '');
 
     # What was written has to read back as the section that was meant, and
     # leave every other address alone
     my @now = MCP::Wiki::TOC::Parser->parse_content($new_text);
-    my ($added) = grep { $_->line_start == $pos + $lead + 1 } @now;
+    my ($added) = grep { $_->line_start == $pos + 1 } @now;
     die "The heading '$heading' would not be read as a heading of level $level at that place"
         ." (it lies inside a code block, comment or front matter, or is not valid heading text)\n"
         unless $added && $added->heading eq $heading && $added->level == $level;

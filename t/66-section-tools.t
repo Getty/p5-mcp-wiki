@@ -72,7 +72,7 @@ subtest 'add_section: top level and before' => sub {
     my $out = ok_res( call( add_section => { page => $p, parent => '', heading => 'Last', content => 'x' } ), 'top level' );
     is $out->{heading_path}, 'Last', 'a root path';
     is $out->{level}, 1, 'level 1';
-    is disk($p), $GUIDE . "\n# Last\nx\n", 'at the end of the page, separated by a blank line';
+    is disk($p), $GUIDE . "# Last\nx\n", 'at the end of the page';
 
     $p = fresh('a.md');
     $out = ok_res( call( add_section => { page => $p, heading => 'Last2' } ), 'parent defaults to the top level' );
@@ -95,11 +95,11 @@ subtest 'add_section: top level and before' => sub {
 
     $p = fresh( 'plain.md', "just text\n" );
     ok_res( call( add_section => { page => $p, heading => 'H' } ), 'to a page without headings' );
-    is disk($p), "just text\n\n# H\n", 'after the text';
+    is disk($p), "just text\n# H\n", 'after the text';
 
     $p = fresh( 'crlf.md', "# A\r\ntext\r\n" );
     ok_res( call( add_section => { page => $p, parent => 'A', heading => 'B', content => "x\ny" } ), 'to a CRLF page' );
-    is $dir->child($p)->slurp_raw, "# A\r\ntext\r\n\r\n## B\r\nx\r\ny\r\n", 'written with CRLF';
+    is $dir->child($p)->slurp_raw, "# A\r\ntext\r\n## B\r\nx\r\ny\r\n", 'written with CRLF';
 };
 
 subtest 'add_section: refusals' => sub {
@@ -220,6 +220,55 @@ subtest 'rename_heading' => sub {
     }
     is disk($p), $before, 'nothing written by any of them';
     is scalar @events, 0, 'no event';
+};
+
+subtest 'add_section touches no other section' => sub {
+    my %layouts = (
+        compact      => "# Page\n## Notes\nalpha\n## Other\nbeta\n",
+        'blank lines' => "# Page\n\n## Notes\n\nalpha\n\n## Other\n\nbeta\n",
+        'preamble only' => "nur text\n",
+        'preamble and a heading' => "nur text\n\n# Eins\ntext\n",
+        'no final newline' => "# Page\n## Notes\nalpha",
+        'trailing blank lines' => "# Page\n## Notes\nalpha\n\n\n",
+    );
+    my @adds = (
+        [ 'last child of the first'  => { parent => 'Page' } ],
+        [ 'in front of a sibling'    => { parent => 'Page', before => 'Page#Other' } ],
+        [ 'in front of the first'    => { parent => 'Page', before => 'Page#Notes' } ],
+        [ 'below a leaf'             => { parent => 'Page#Notes' } ],
+        [ 'at the top level'         => { parent => '' } ],
+    );
+    for my $layout ( sort keys %layouts ) {
+        for my $add (@adds) {
+            my $label = "$layout, $add->[0]";
+            my $text = $layouts{$layout};
+            my $p = fresh( 'lay.md', $text );
+            my %args = %{ $add->[1] };
+            my %have = map { ( $_ => 1 ) } @{ paths($p) };
+            next if grep { length && !$have{$_} } grep { defined } @args{qw( parent before )};
+            my %before = map { ( $_->{heading_path} => $_->{hash} ) } @{ call( get_toc => { page => $p } )->{structuredContent}{entries} // [] };
+            my $pre = call( get_paragraph => { page => $p, heading_path => '' } )->{structuredContent}{hash};
+
+            my $out = ok_res( call( add_section => { page => $p, heading => 'Neu', content => "gamma\n", %args } ), "$label: added" );
+            my %after = map { ( $_->{heading_path} => $_->{hash} ) } @{ call( get_toc => { page => $p } )->{structuredContent}{entries} // [] };
+            my $new = $out->{heading_path} // '';
+            # the one exception: a last line that lacked its newline gets it
+            if ( $layout ne 'no final newline' ) {
+                is_deeply { map { ( $_ => $after{$_} ) } grep { $_ ne $new } keys %after }, \%before,
+                    "$label: every other section keeps its hash";
+            }
+            is call( get_paragraph => { page => $p, heading_path => '' } )->{structuredContent}{hash}, $pre,
+                "$label: and so does the preamble";
+
+            ok_res( call( delete_section => { page => $p, heading_path => $new } ), "$label: deleted again" );
+            is disk($p), $text, "$label: add then delete gives the original bytes";
+        }
+    }
+
+    # a line that lacks its newline gets exactly that newline
+    my $p = fresh( 'nonl.md', "# A\nx" );
+    ok_res( call( add_section => { page => $p, parent => 'A', heading => 'B' } ), 'added after a last line without newline' );
+    is disk($p), "# A\nx\n## B", 'the one newline is added, nothing else';
 };
 
 subtest 'write_page' => sub {

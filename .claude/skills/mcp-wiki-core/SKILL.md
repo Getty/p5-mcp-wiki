@@ -156,6 +156,9 @@ History the same name — it looks the page up in each commit's tree by that str
   re-parse it and check the result before writing: the new heading reads back as itself, an
   added one leaves every existing `heading_path` unchanged (a duplicate in front of its twin is
   refused), levels never go past 6 and a `before` sibling must not be deeper than the new level.
+  `add_section` changes no other section's bytes (hashes stay): it goes in front of the page's
+  trailing blank lines, a separating blank line is the new section's own last line and only a
+  last line without `\n` gets one; add then delete restores the page byte for byte.
   `delete_section` takes the whole subtree; its hash is the section's alone. `search_pages`
   walks `_list_pages($prefix)` and re-resolves every page; plain substring, case-insensitive.
 - A body is checked before it is written (`Document::_check_body`, `Parser::body_problem`, run
