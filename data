@@ -1,0 +1,28 @@
+---
+claimed_at: 2026-10-26T20:54:13Z
+claimed_by: haus
+class: standard
+completed: 2026-10-26T20:54:13Z
+created: 2026-10-25T07:21:22Z
+id: 55
+priority: low
+started: 2026-10-26T20:46:18Z
+status: done
+tags:
+- style
+- proposal
+title: 'Proposal: house-style drift in the older modules'
+updated: 2026-10-26T20:54:13Z
+---
+
+Evidence: Git/History.pm, Document.pm and TOC/*.pm use die where getty-perl-core wants croak for caller errors; History.pm loads MCP::Wiki::TOC::Parser at runtime via require in _get_parser instead of a compile-time use; three Moo classes lack namespace::clean; older files use 4-space indent while Server.pm uses another layout; cpanfile runtime requires are not sorted. Found during k12 (WA) and the audit. Behaviour-neutral but touches every module.
+
+Options: (a) leave it; (b) one dedicated refactor commit after the open cards land: croak for caller errors, use instead of runtime require, namespace::clean in every Moo class, sorted cpanfile — no reindent; (c) as (b) plus a perltidy profile and a reindent.
+
+Recommendation: (b), as its own card once the bug cards are done, so no behaviour change hides in a style diff. Reindent (c) only with a perltidyrc the maintainer agrees to.
+
+Also (k31): Server.pm uses `use feature 'signatures'` in the tool closures, which warns as experimental on 5.20–5.34; k31 silences it with `no warnings 'experimental::signatures'`. Whether to keep signatures or go to `my ($tool, $args) = @_` (house style) belongs here.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (b): one behaviour-neutral refactor commit (croak, compile-time use, namespace::clean, sorted cpanfile, no reindent); signatures replaced by my (...) = @_. Branch haus, last.
+
+Commit 3e49b68 on branch haus. Suite green with and without Git::Raw (956/797 tests). Also found: Server.pm still requires MCP::Wiki::Git::History at runtime (optional Git::Raw path, left); t/30 and t/35 still use feature 'signatures' (tests, out of scope); Server.pm die for system errors kept (not caller errors).
