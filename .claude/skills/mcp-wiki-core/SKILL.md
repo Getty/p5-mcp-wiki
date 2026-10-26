@@ -180,12 +180,13 @@ History the same name — it looks the page up in each commit's tree by that str
   `eval` with a shallow copy of its own, errors `warn`ed. The write counts as successful
   whatever they do.
 - Auto-commit hangs off `_fire_on_change`, not off the tools: a writing tool commits when it
-  fires its event, and only then. It needs `use_git` and a `git_history`; `restore` events
-  are excluded. `auto_commit` takes a path or a list of paths and stages each as the work
-  tree has it — present means added, missing means removed — so a rename commits `from` and
-  `to` together and a delete commits the removal. The commit message is the event's
-  `reason` alone when it has visible text, else the generated one (`Updated page: m.md
-  (Intro#Alpha)`, `Renamed page: a.md -> b.md`).
+  fires its event, and only then. It needs `use_git` and a `git_history`; every event type
+  is committed, a `restore` too. `auto_commit` takes a path or a list of paths and stages
+  each as the work tree has it — present means added, missing means removed — so a rename
+  commits `from` and `to` together and a delete commits the removal. The commit message is
+  the event's `reason` alone when it has visible text, else the generated one (`Updated
+  page: m.md (Intro#Alpha)`, `Renamed page: a.md -> b.md`, `Restore Intro#Alpha from
+  0123456`: section and the first 7 characters of the hash; t/59).
 - `restore_section`: the Server reads the page with `Document::read_for_update` (LF text and
   the page's line ending; a page that is not valid UTF-8 is refused before History is
   asked), hands History the LF text, writes the complete document History returns with

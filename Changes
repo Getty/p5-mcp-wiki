@@ -28,6 +28,10 @@
     has that "[" written "\[": the heading "A#B" and the pair "A" > "B" no
     longer share an address. MCP::Wiki::TOC::Parser gets escape_segment and
     split_heading_path for the two directions.
+  - With use_git, restore_section is committed like every other write, with
+    its reason as message, else "Restore <heading_path> from <short hash>".
+    The restored text used to be committed later with an unrelated edit of
+    the page, under that edit's message
   - Breaking: rename_page and delete_page refuse a page name that is itself a
     symlink (also as the target of a rename). They used to move or remove the
     page the link points to and leave the link dangling; name that page

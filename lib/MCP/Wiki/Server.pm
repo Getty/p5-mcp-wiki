@@ -731,7 +731,8 @@ sub _setup_tools {
     # Tool: restore_section
     $self->_add_tool(
         name        => 'restore_section',
-        description => 'Restore a section from a historical commit',
+        description => 'Restore a section from a historical commit. The restored page is committed'
+            .' with the reason as message, else "Restore <heading_path> from <short hash>".',
         annotations => $self->_annotations(destructive => 1, idempotent => 1),
         input_schema => {
             type => 'object',
@@ -750,7 +751,7 @@ sub _setup_tools {
                 },
                 reason => {
                     type => 'string',
-                    description => 'Reason for the restore, passed on to on_change handlers in the restore event; a restore is not committed',
+                    description => 'Reason for the restore (used as git commit message if git is enabled)',
                 },
             },
             required => ['page', 'heading_path', 'commit_hash'],
@@ -838,7 +839,7 @@ sub _fire_on_change {
     my ($self, $event) = @_;
 
     # Auto-commit via git if enabled
-    if ($self->use_git && $event->{type} ne 'restore') {
+    if ($self->use_git) {
         my $git = eval { $self->git_history };
         warn "Git auto-commit error: $@" if $@;
         if ($git) {
@@ -875,6 +876,9 @@ sub _commit_message_for_event {
         delete  => "Deleted page",
     );
     my $type = $event->{type} // 'unknown';
+    # A restore names the section and the commit it came from
+    return 'Restore '.($event->{heading_path} // '').' from '
+        .substr($event->{commit_hash} // '', 0, 7) if $type eq 'restore';
     # A rename names both pages, every other event the one it changed
     my $page = $type eq 'rename'
         ? ($event->{from} // '').' -> '.($event->{to} // '')
@@ -978,14 +982,15 @@ C<use_git> and L<Git::Raw>.
 =item C<restore_section> (C<page>, C<heading_path>, C<commit_hash>, optional C<reason>)
 
 Puts the section's text from that commit back into the page and leaves the rest
-of the page as it is. The restore itself is not committed. Needs C<use_git> and
-L<Git::Raw>.
+of the page as it is. With C<use_git> the restore is committed, with the
+C<reason> as message, else C<Restore Intro#Background from 1a2b3c4> (section and
+short commit hash). Needs C<use_git> and L<Git::Raw>.
 
 =back
 
 Every tool that writes calls the L</on_change> handlers afterwards. With
-C<use_git>, every write except a restore is committed, with the C<reason> as
-message when one is given.
+C<use_git>, every write is committed, with the C<reason> as message when one is
+given.
 
 =head1 PAGE NAMES
 

@@ -66,15 +66,16 @@ chain: with `# Intro`, `## Alpha`, `## Beta` the second section is
 | `restore_section` | `page`, `heading_path`, `commit_hash` | `reason` | Restore a section from a git commit (needs `use_git` and Git::Raw) |
 
 `reason` becomes the whole git commit message when `use_git` is on; without one
-the commit gets a generated message naming the page. `restore_section` does not
-commit; its `reason` only goes out with the `restore` change event.
+the commit gets a generated message naming the page. `restore_section` is
+committed too: its message is the `reason`, else `Restore <heading_path> from
+<short hash>`.
 
 ## Configuration
 
 - `wiki_root`: Root directory for wiki pages (default: current dir)
 - `use_git`: Enable git auto-commit on changes (default: 0). Needs the optional
   Git::Raw; without it the history tools answer "not available" and nothing is
-  committed. `restore_section` does not auto-commit.
+  committed.
 - `commit_reason_required`: accepted (default: 0) but currently has no effect.
 
 On the command line these are `--wiki-root`, `--git` and
