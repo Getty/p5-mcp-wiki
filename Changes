@@ -49,6 +49,9 @@
   - create_page without content starts the page with the file name without
     ".md" as its heading ("# c" for a/b/c.md), no longer the whole path;
     directories that a rename or delete empties stay
+  - The distribution tarball no longer carries the agent and repo
+    housekeeping files (.claude, .codex, CLAUDE.md, PLAN.md,
+    .worktreeinclude, .gitignore) at its top level.
   - Docker: one image, raudssus/mcp-wiki on Docker Hub, built and pushed by
     the dzil bundle at release; the second, separate build-and-push script
     and the local-only registry setting are gone
