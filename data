@@ -1,0 +1,25 @@
+---
+claimed_at: 2026-10-26T20:26:49Z
+claimed_by: docker
+class: standard
+completed: 2026-10-26T20:26:49Z
+created: 2026-10-25T07:03:46Z
+id: 50
+priority: critical
+started: 2026-10-26T19:54:02Z
+status: done
+tags:
+- proposal
+- docker
+title: 'Proposal: the Docker image cannot be built through the dzil path'
+updated: 2026-10-26T20:26:49Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: Docker::API's after_build uses the built dist (no .git) as build context (Dist/Zilla/Plugin/Docker/API.pm:336); Dockerfile:27 runs `dzil build` inside it, which fails ("fatal: not a git repository", exit 128, simulated). A manual `docker build .` from the checkout gets past dzil, but then the tarball's tests fail (dist-tests card). Not run as a real docker build (base image not pulled). Related waste: Dockerfile:20 `cpanm --installdeps --cpanfile cpanfile` without a target installs nothing (no cached dependency layer); :26 installs Dist::Zilla + bundle into the system site_perl that :44 copies into the runtime stage; :17 reinstalls cpanm; :33-34 install zlib1g-dev/libssl3 that nothing needs; :55 EXPOSE 8080 on a stdio server; the :47 comment "Copy wiki root" is wrong.
+Why a proposal: it changes how the k7 image is built.
+Options: (a) the Dockerfile installs the already-built dist from its context (`cpanm --installdeps . && cpanm .`), no dzil inside the image; manual builds go through `dzil build`; (b) keep dzil in the image, build only by hand from the checkout, drop the Docker::API wiring (reverses k7); (c) support both with a stage that checks for Makefile.PL.
+Recommendation: (a), together with the layer clean-up.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a) with the layer clean-up: the image installs the built dist (cpanm --installdeps . as a cached layer, then cpanm .), no dzil in the image. Branch docker.
