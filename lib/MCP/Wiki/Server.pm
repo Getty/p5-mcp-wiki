@@ -135,15 +135,26 @@ sub _is_git_dir_name {
 # back: mixed with characters they would be re-encoded into a different name.
 sub _resolve_page {
     my ($self, $page) = @_;
+    my ($path) = $self->_walk_page($page);
+    return $path;
+}
+
+# The walk of _resolve_page. In list context it also says whether the name
+# itself, its last component, is a symlink: rename and delete refuse such a
+# name, because the path they get is the link's target.
+sub _walk_page {
+    my ($self, $page) = @_;
 
     croak 'Page name required' unless defined $page && !ref $page && length $page;
     croak 'Invalid page name' if $page =~ /\0/;
 
     my $root = $self->_wiki_root_path;
     my $path = $root;
+    my $is_link = 0;
     for my $part (split m{/+}, encode('UTF-8', $page)) {
         next if $part eq '' || $part eq '.';
         $path = $part eq '..' ? $path->parent : $path->child($part);
+        $is_link = $part ne '..' && -l $path ? 1 : 0;
         if (-l $path || -e $path) {
             $path = eval { $path->realpath }
                 or croak "Cannot resolve page path: $page";
@@ -164,6 +175,18 @@ sub _resolve_page {
     croak 'Not a wiki page ('.(-d $path ? 'a directory' : 'not a plain file')."): $page"
         if -e $path && !-f $path;
 
+    return ($path, $is_link);
+}
+
+# For rename and delete: croaks when the page name itself is a symlink. The
+# resolved path would be the link's target, so the tool would move or remove
+# another page and leave the link dangling. Reading and writing through a
+# link keep working.
+sub _resolve_page_not_link {
+    my ($self, $page) = @_;
+    my ($path, $is_link) = $self->_walk_page($page);
+    croak 'Page name is a symlink to '.$self->_page_name($path)
+        .': name that page instead of the link: '.$page if $is_link;
     return $path;
 }
 
@@ -568,7 +591,8 @@ sub _setup_tools {
     # Tool: rename_page
     $self->_add_tool(
         name        => 'rename_page',
-        description => 'Rename or move a wiki page within the wiki root',
+        description => 'Rename or move a wiki page within the wiki root.'
+            .' Refuses a name that is itself a symlink: name the page it points to.',
         annotations => $self->_annotations(destructive => 1),
         input_schema => {
             type => 'object',
@@ -585,9 +609,9 @@ sub _setup_tools {
             required => ['from', 'to'],
         },
         code => sub ($tool, $args) {
-            my $from_path = eval { $self->_resolve_page($args->{from}) }
+            my $from_path = eval { $self->_resolve_page_not_link($args->{from}) }
                 or return $tool->text_result("Invalid path: $@", 1);
-            my $to_path = eval { $self->_resolve_page($args->{to}) }
+            my $to_path = eval { $self->_resolve_page_not_link($args->{to}) }
                 or return $tool->text_result("Invalid path: $@", 1);
 
             unless (-e $from_path) {
@@ -622,7 +646,8 @@ sub _setup_tools {
     # Tool: delete_page
     $self->_add_tool(
         name        => 'delete_page',
-        description => 'Delete a wiki page',
+        description => 'Delete a wiki page.'
+            .' Refuses a name that is itself a symlink: name the page it points to.',
         annotations => $self->_annotations(destructive => 1),
         input_schema => {
             type => 'object',
@@ -635,7 +660,7 @@ sub _setup_tools {
             required => ['page'],
         },
         code => sub ($tool, $args) {
-            my $page_path = eval { $self->_resolve_page($args->{page}) }
+            my $page_path = eval { $self->_resolve_page_not_link($args->{page}) }
                 or return $tool->text_result("Invalid path: $@", 1);
 
             unless (-e $page_path) {
@@ -939,11 +964,11 @@ Replaces the section's body; its heading line stays.
 =item C<rename_page> (C<from>, C<to>)
 
 Renames or moves a page, creating missing directories. Never replaces an
-existing page.
+existing page. Refuses a name that is itself a symlink.
 
 =item C<delete_page> (C<page>)
 
-Deletes the page.
+Deletes the page. Refuses a name that is itself a symlink.
 
 =item C<get_section_history> (C<page>, C<heading_path>)
 
@@ -976,7 +1001,11 @@ root. A name that leads outside is refused, whether it gets there through
 C<..>, through a symlink (including one whose target does not exist yet) or
 through a directory that merely shares the root's name as a prefix, such as
 C</srv/wiki-old> next to C</srv/wiki>. A symlink that stays inside the root
-works like the page it points to.
+works like the page it points to for reading and writing. C<rename_page> and
+C<delete_page> refuse a name that is itself a symlink (as the source or target of
+a rename): they would move or remove the page it points to and leave the link
+dangling; name that page instead. A page inside a symlinked directory is not
+affected.
 
 Three things inside the root are not pages and are refused by every tool:
 

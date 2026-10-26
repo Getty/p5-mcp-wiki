@@ -28,6 +28,10 @@
     has that "[" written "\[": the heading "A#B" and the pair "A" > "B" no
     longer share an address. MCP::Wiki::TOC::Parser gets escape_segment and
     split_heading_path for the two directions.
+  - Breaking: rename_page and delete_page refuse a page name that is itself a
+    symlink (also as the target of a rename). They used to move or remove the
+    page the link points to and leave the link dangling; name that page
+    instead. Reading and writing through a link work as before
   - create_page without content starts the page with the file name without
     ".md" as its heading ("# c" for a/b/c.md), no longer the whole path;
     directories that a rename or delete empties stay

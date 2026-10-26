@@ -78,6 +78,11 @@ History the same name — it looks the page up in each commit's tree by that str
   path), the root itself, any resolved basename not ending in `.md` (any case), and a
   resolved path that exists but is no plain file (a `dir.md` directory, a FIFO). A tool
   that builds a path itself reopens the hole.
+- `rename_page` and `delete_page` (both names of a rename) go through
+  `_resolve_page_not_link`: it refuses a name whose last component is itself a symlink,
+  since the resolved path would be the link's target and the link would be left
+  dangling. Reads and writes through the link, and pages in a symlinked directory, work
+  as before (t/58).
 - Names are characters, the filesystem is bytes: `_resolve_page` walks the UTF-8 encoding
   of the name and returns a byte path, like the root and everything `realpath` and
   `readdir` give back — mixing the two re-encodes a name into a different file. Names

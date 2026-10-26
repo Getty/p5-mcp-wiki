@@ -94,6 +94,10 @@ that
 - is not a `.md` file (a directory or FIFO named `x.md` is none either), or
 - lies below a `.git` directory (any case, any depth, also through a symlink).
 
+A name that is itself a symlink to a page in the root is read and written like
+that page, but `rename_page` and `delete_page` refuse it (they would act on the
+page it points to and leave the link dangling): name the page itself.
+
 `list_pages` returns exactly the pages the other tools accept.
 
 To serve another directory, start a server with another `wiki_root`
