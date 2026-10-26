@@ -1,0 +1,26 @@
+---
+claimed_at: 2026-10-26T20:45:19Z
+claimed_by: werkzeuge
+class: standard
+completed: 2026-10-26T20:45:19Z
+created: 2026-10-25T07:03:32Z
+id: 36
+priority: medium
+started: 2026-10-26T20:34:17Z
+status: done
+tags:
+- proposal
+- tool-surface
+title: 'Proposal: update_paragraph content can restructure the page'
+updated: 2026-10-26T20:45:19Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: a body containing "# Hijack" re-parents the following section ("Intro#Beta" becomes "Hijack#Beta", the old path answers "Heading not found"); an unclosed ``` fence swallows every later section (TOC drops from 3 entries to 1). The result is success either way. Adding a deeper heading inside a body is today the only way to create a subsection.
+Options: (a) reject content with a heading at or above the section's level, and unbalanced fences; (b) accept but return the changed/new heading_paths (additive result); (c) document only.
+Recommendation: (a), keeping deeper headings allowed; if an add_section tool (missing-operations card) lands first, reject all headings.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (a), strict form since add_section lands with it: update_paragraph rejects content with any heading line or an unbalanced fence. Breaking. Branch werkzeuge, after kopf.
+
+Commit 7d9d21a on branch werkzeuge. Red proof: t/68 against the lib without the check: 70 failed assertions (all refusals accepted). Decision: the check runs on the body alone (start state 'outside everything'; front matter skipped only for the preamble) via Parser::body_problem, so an edit is judged by what it adds, not by pre-existing open fences elsewhere; same check guards add_section content. restore_section is not checked (History's text). Breaking, in Changes.
