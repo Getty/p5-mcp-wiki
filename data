@@ -1,0 +1,25 @@
+---
+claimed_at: 2026-10-26T20:27:06Z
+claimed_by: docker
+class: standard
+completed: 2026-10-26T20:27:06Z
+created: 2026-10-25T07:03:49Z
+id: 53
+priority: low
+started: 2026-10-26T19:54:20Z
+status: done
+tags:
+- proposal
+- docker
+- git
+title: 'Proposal: the Docker image has no Git::Raw, so --git does nothing there'
+updated: 2026-10-26T20:27:06Z
+---
+
+PROPOSAL: product-direction decision for the maintainer; do not implement without a go-ahead.
+
+Evidence: cpanm does not install `recommends`; the build stage has libssl-dev/zlib1g-dev (Git::Raw's build deps), as if it was intended. README now states the image has no history.
+Options: (a) keep documenting it; (b) install Git::Raw in the image once the Git::Raw API card is done; (c) a separate tag with git support.
+Recommendation: (b) after the API fix lands and is covered by the opt-in test.
+
+2026-10-26 19:51 Decision (coordinator, on the maintainer's order to work the board off): option (b): install Git::Raw in the image (k12 is on main); proven by a commit from inside the image. Branch docker.
