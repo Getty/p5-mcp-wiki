@@ -1,232 +1,180 @@
 {{$NEXT}}
-  - Internal tidy-up without a change in behaviour: errors of the caller are
-    raised with croak, the TOC parser is loaded at compile time, every Moo
-    class cleans its namespace, and the server no longer needs the
-    signatures feature.
-  - Every module and bin/mcp-wiki carries its own $VERSION, the same as the
-    distribution's.
-  - Breaking: update_paragraph refuses content that changes the structure of
-    the page: a heading line (a deeper one used to be the only way to make a
-    subsection), a code fence or an HTML comment left open. Before, "# X"
-    in a body re-parented the sections after it and an unclosed fence hid
-    them. Sections are added with the new add_section.
-  - New tools to change a page's structure: add_section (below a parent or
-    in front of a sibling, answers with the new heading_path),
-    delete_section, rename_heading and write_page (replaces a whole existing
-    page). They take optional reason and, where they change existing text,
-    expected_hash.
-  - New tool search_pages: case-insensitive plain-text search over the pages
-    (optionally below a directory), with the section, line and a snippet of
-    each match, bounded by limit.
-  - The text before the first heading, front matter included, can be read
-    and written: get_paragraph and update_paragraph take the heading_path
-    "" for it. A page without any heading is all preamble. The new tool
-    get_page returns the whole page and its hash.
-  - Every section has a hash, the SHA-256 of its bytes on disk, shown by
-    get_toc and get_paragraph. update_paragraph takes an optional
-    expected_hash and refuses, writing nothing, when the section changed
-    since it was read, so two clients no longer overwrite each other
-    unseen. The answer carries the section's new hash.
-  - Breaking: the parser recognises headings by CommonMark's rules. Fenced
-    code blocks of ``` and ~~~ (closer of the same character and at least as
-    long, no backtick in a backtick fence's info string), a leading YAML
-    front matter block, HTML comment blocks and lines indented by four or
-    more spaces no longer yield headings, so the addresses of the sections
-    below them change; ATX headings indented by one to three spaces are now
-    headings. Setext headings stay unsupported. update_paragraph no longer
-    cuts a closing fence or front matter delimiter off a page.
-  - Breaking: get_toc anchors follow GitHub: letters and digits of every
-    script are kept ("Über Größe" is "über-größe", it was "ber-gr-e"; "日本語"
-    is no longer empty), other punctuation is dropped, each space becomes a
-    hyphen ("A & B" is "a--b", it was "a-b"), and equal anchors on a page
-    get -1, -2, ... The section length and preview still count the heading
-    line.
+  - Breaking: heading_path is the chain of a section's ancestors only. With
+    "# Intro", "## Alpha", "## Beta", Beta is now Intro#Beta (was
+    Intro#Alpha#Beta) and a following "# Other" is Other (was Intro#Other),
+    so a section's address no longer changes when a sibling is inserted
+    before it. Addresses stored from 0.001 must be fetched anew via get_toc.
   - Breaking: headings that share a heading_path are all reachable. The
     second and later one gets a suffix on its last segment ("Page#Notes[2]",
-    "[3]", ...) in get_toc and in every tool, history tools included; the
-    first keeps its address. Before, the later ones were silently
-    unreachable and update_paragraph always edited the first.
-  - A page that starts with a UTF-8 byte order mark no longer loses its
-    first heading: the mark is ignored when parsing and stays in the file
-    when a section is written. Pages with a mark now get the headings'
-    real addresses ("Title#Sub", not "Sub").
-  - Breaking: a closing run of # ends a heading's text only after whitespace,
-    so "# C#" is "C#" (it was "C"). In a heading_path, "\" and "#" inside a
-    heading's text are written "\\" and "\#", and a text ending in "[digits]"
-    has that "[" written "\[": the heading "A#B" and the pair "A" > "B" no
-    longer share an address. MCP::Wiki::TOC::Parser gets escape_segment and
-    split_heading_path for the two directions.
-  - list_pages and get_toc can be asked for less: list_pages takes an optional
-    prefix, a directory, and lists and walks only that one; get_toc takes
-    max_level (1-6) to leave out deeper headings and include_preview (false
-    drops content_preview). Without them the answers are as before, and no
-    heading_path changes
-  - commit_reason_required (--commit-reason-required) now works: every tool
-    that writes refuses a call without a non-empty reason and says so in its
-    description. rename_page and delete_page take an optional reason for
-    this (also used as the git commit message and passed to on_change
-    handlers when given)
-  - With use_git, restore_section is committed like every other write, with
-    its reason as message, else "Restore <heading_path> from <short hash>".
-    The restored text used to be committed later with an unrelated edit of
-    the page, under that edit's message
-  - Breaking: rename_page and delete_page refuse a page name that is itself a
-    symlink (also as the target of a rename). They used to move or remove the
-    page the link points to and leave the link dangling; name that page
-    instead. Reading and writing through a link work as before
-  - create_page without content starts the page with the file name without
-    ".md" as its heading ("# c" for a/b/c.md), no longer the whole path;
-    directories that a rename or delete empties stay
-  - Docker: one image, raudssus/mcp-wiki on Docker Hub, built and pushed by
-    the dzil bundle at release; the second, separate build-and-push script
-    and the local-only registry setting are gone
-  - Docker: the entrypoint starts mcp-wiki without a shell in between, so a
-    wiki path or any argument containing spaces or quotes arrives intact
-  - Docker: the image no longer pins PERL5LIB to one perl version, and
-    building it no longer tries to build an image from inside the image
-  - Docker: the image is built from the built distribution, as the dzil build
-    does it, or by hand with "dzil build" and then "docker build" in the build
-    directory. Dependencies are installed in a layer of their own, no dzil,
-    cpanm or unused library goes into the image, and no port is exposed.
-  - Docker: the image contains Git::Raw, so --git commits and the history
-    tools work when the mounted directory is a git repository.
-  - Docker: the working directory is /wiki, so the default wiki root is the
-    mounted volume and "docker run -i -v DIR:/wiki raudssus/mcp-wiki --git"
-    serves DIR. The entrypoint checks the --wiki-root it was given (the last
-    one), not just /wiki.
-  - Breaking: the container always runs as uid 1000 (or the --user given) and
-    never changes the ownership of a mounted directory; it used to run as the
-    owner of the mount and to hand a root-owned volume to uid 1000. A wiki
-    root that is missing or not writable for that uid now stops the container
-    with a message that says how to fix it (--user, or write access).
-  - With --git, a wiki that lies in a subdirectory of a git repository or in
-    a linked worktree gets commits and history: the repository is found from
-    the wiki root upwards, and page names stay relative to the wiki root. It
-    used to need the wiki root to hold the .git directory itself.
-  - When --git cannot be honoured (Git::Raw missing, no repository around the
-    wiki), the server says so once at startup and goes on without git, instead
-    of warning on every write.
-  - bin/mcp-wiki starts with "#!/usr/bin/env perl"; installs rewrite it to the
-    installing perl as before
-  - restore_section writes the restored page: the document that the history
-    returns replaces the page file instead of being pushed into a single
-    section, which used to leave the whole page inside one heading.
+    "[3]", ...) in get_toc and in every tool, the history tools included;
+    the first keeps its address. Before, the later ones were unreachable.
+  - Breaking: "\" and "#" inside a heading's text are written "\\" and "\#"
+    in a heading_path, and a text ending in "[digits]" has that "[" written
+    "\[", so the heading "A#B" and the pair "A" > "B" no longer share an
+    address. MCP::Wiki::TOC::Parser gets escape_segment and
+    split_heading_path for the two directions. A closing run of # ends a
+    heading's text only after whitespace: "# C#" is "C#" (was "C").
+  - Breaking: headings are recognised by CommonMark's rules. Fenced code
+    blocks of ``` and ~~~, a leading YAML front matter block, HTML comment
+    blocks and lines indented by four or more spaces no longer yield
+    headings, so the addresses of the sections below them change; ATX
+    headings indented by one to three spaces are now headings. Setext
+    headings stay unsupported. A page that starts with a UTF-8 byte order
+    mark keeps its first heading (the mark is ignored when parsing and stays
+    in the file), so its sections get their real addresses ("Title#Sub", not
+    "Sub").
+  - Breaking: get_toc anchors follow GitHub: letters and digits of every
+    script are kept ("Über Größe" is "über-größe", was "ber-gr-e"; "日本語"
+    is no longer empty), other punctuation is dropped, each space becomes a
+    hyphen ("A & B" is "a--b", was "a-b"), and equal anchors on a page get
+    -1, -2, ...
   - Breaking: a section's text is its body without the heading line, in
     get_paragraph and update_paragraph alike. update_paragraph replaces the
     body only and leaves the heading and the following section untouched
     (it used to swallow the first line of the next section); content that
     still starts with the heading line now gets that heading twice. Writing
-    back what get_paragraph returned leaves the page byte for byte as it was.
-  - Breaking: heading_path is now the chain of a section's ancestors only.
-    Siblings no longer leak into it: "# Intro", "## Alpha", "## Beta" yield
-    Intro#Beta (was Intro#Alpha#Beta), and a following "# Other" yields
-    Other (was Intro#Other). A section's address no longer changes when a
-    sibling section is inserted before it. Addresses stored from earlier
-    versions for any section after a sibling must be fetched anew via get_toc.
-  - MCP::Wiki::Git stays as a deprecated thin wrapper around
-    MCP::Wiki::Git::History
-  - Removed unused internals: Document update_content_hash, Git::History
-    history_file / _build_history_file (.mcp-wiki-history.json was never read
-    or written), and the unused Digest::SHA, to_json and Types::Standard
-    imports; Digest::SHA and Types::Standard leave the cpanfile
-  - Docs: README tool table lists the real arguments of every tool
-    (heading_path, not heading); mcp-wiki POD states what --git and
-    --commit-reason-required do; PLAN.md is marked as the original draft;
-    t/06-readme-tools.t keeps README and bin/mcp-wiki POD in sync with the
-    tool schemas and Getopt options
-  - Security: every tool is confined to the wiki root given at start
-    (wiki_root / --wiki-root). Tools take no root_dir argument; page names are
-    resolved (symlinks, "..") and must lie below the root.
-  - Security: a page is a .md file. Tools refuse any other file and everything
-    below a .git directory, so a wiki's repository is out of reach.
-  - list_pages returns exactly the pages the other tools accept and does not
-    enter .git
-  - create_page and rename_page create missing subdirectories
-  - cpanfile matches the code: MCP, Mojolicious, Moo, Path::Tiny and
-    JSON::MaybeXS are required, Git::Raw is recommended (history degrades
-    cleanly without it), unused Markdown::Perl and Syntax::Keyword::Try are
-    dropped; t/05-cpanfile.t keeps it in sync
-  - Docs: the README shows the Docker usage as "docker run -i --rm -v
-    /path/to/wiki:/wiki raudssus/mcp-wiki"; the Document SYNOPSIS uses
-    file_path; commit_reason_required is documented as having no effect; a
-    TOC entry's content_preview and char_count are documented as including
-    the heading line
-  - The distribution's own test suite no longer fails during cpanm, dzil test
-    or the Docker build: a Docker test read README.md, which the tarball
-    does not ship
-  - get_toc and the section tools no longer slow down quadratically with the
-    number of headings (8000 headings: about 42 s down to under 1 s); heading
-    paths and line ranges are unchanged
-  - A tool call that fails reading or deleting a page, or in the git history,
-    now answers with an error naming the problem instead of an opaque
-    "Internal error" (e.g. an unreadable page, a directory named like a
-    page, a failing history lookup or restore)
-  - namespace::clean is declared as a runtime requirement: MCP::Wiki::Git
-    loads it, so a clean install failed t/00-load and t/41
-  - get_paragraph and update_paragraph read the page once and work on that
-    snapshot; a write landing in between can no longer make an edit hit the
-    wrong section
+    back what get_paragraph returned leaves the page byte for byte as it
+    was, front matter and closing fences included.
+  - Breaking: update_paragraph refuses content that changes the structure of
+    the page: a heading line, or a code fence or HTML comment left open
+    ("# X" in a body used to re-parent the sections after it, an unclosed
+    fence hid them). Sections are added with the new add_section.
+  - Breaking: every tool is confined to the wiki root given at start
+    (wiki_root / --wiki-root). The root_dir tool argument is gone and a call
+    that passes one is refused; page names are resolved (symlinks, "..") and
+    must lie below the root. A page is a .md file: any other file, a
+    directory, FIFO or device named like a page, and everything below a .git
+    directory are refused. list_pages returns exactly the pages the other
+    tools accept.
+  - Breaking: rename_page and delete_page refuse a page name that is itself
+    a symlink (also as the target of a rename); they used to act on the page
+    the link points to and leave the link dangling. Name that page instead.
+    Reading and writing through a link work as before.
+  - Breaking (Docker): the container always runs as uid 1000 (or the --user
+    given) and never changes the ownership of a mounted directory; it used
+    to run as the owner of the mount and to hand a root-owned volume to uid
+    1000. A wiki root that is missing or not writable for that uid stops the
+    container with a message that says how to fix it (--user, or write
+    access).
+  - New tools to change a page's structure: add_section (below a parent or
+    in front of a sibling, answers with the new heading_path),
+    delete_section, rename_heading and write_page (replaces a whole existing
+    page). They take an optional reason and, where they change existing
+    text, expected_hash. The tool count is now 15.
+  - New tool search_pages: case-insensitive plain-text search over the pages
+    (optionally below a directory), with the section, line and a snippet of
+    each match, bounded by limit.
+  - New tool get_page returns the whole page and its hash. The text before
+    the first heading, front matter included, is read and written with the
+    heading_path "" in get_paragraph and update_paragraph; a page without
+    any heading is all preamble.
+  - Every section has a hash, the SHA-256 of its bytes on disk, shown by
+    get_toc and get_paragraph. update_paragraph takes an optional
+    expected_hash and refuses, writing nothing, when the section changed
+    since it was read, so two clients no longer overwrite each other
+    unseen; the answer carries the new hash.
+  - list_pages takes an optional prefix, a directory, and walks only that
+    one; get_toc takes max_level (1-6) to leave out deeper headings and
+    include_preview (false drops content_preview). Without them the answers
+    are as before.
+  - commit_reason_required (--commit-reason-required) now works: every tool
+    that writes refuses a call without a non-empty reason and says so in its
+    description. rename_page and delete_page take an optional reason (also
+    the git commit message and passed to on_change handlers when given).
+  - With --git, commits and history work against the real Git::Raw API:
+    creating, updating, renaming, deleting and restoring a page are
+    committed (a rename names both pages, a delete the removal), authored
+    with the repository's git identity or "MCP::Wiki <mcp-wiki@localhost>";
+    get_section_history and restore_section work, non-ASCII headings and
+    text included, and get_section_history lists only the commits that
+    created or changed the section. Before, every commit failed and the
+    history tools could not read the repository.
+  - With --git, a given reason is the commit message as is (no "Reason:"
+    trailer); without one a message is generated, e.g. "Restore
+    Intro#Alpha from 0123456" or "Renamed page: old -> new".
+  - With --git, a wiki in a subdirectory of a git repository or in a linked
+    worktree gets commits and history: the repository is found from the wiki
+    root upwards and page names stay relative to the wiki root. If --git
+    cannot be honoured (Git::Raw missing, no repository around the wiki),
+    the server says so once at startup and goes on without git, instead of
+    warning on every write.
+  - restore_section writes the restored page, not a section pushed into one
+    heading; it keeps the page's final newline and the blank line before the
+    next heading, and a page restored from a CRLF version gets no stray
+    carriage returns. It refuses pages that are not valid UTF-8.
+  - on_change events and the history tools name a page by its canonical path
+    below the wiki root (as list_pages shows it), also when the client used
+    ./, .. or an in-root symlink, so auto-commit stages the right file and
+    history is found whatever the spelling; each handler gets its own copy
+    of the event. bin/mcp-wiki no longer installs a handler that warned on
+    every change.
   - Pages with CRLF line endings: get_paragraph returns the section with LF
-    line endings, update_paragraph writes the page back with CRLF throughout,
-    and an unchanged round trip stays byte-identical; TOC previews and char
-    counts no longer count the CRs, and an empty "# " heading line no longer
-    yields a heading named by a stray CR. Pages with LF line endings are
-    unchanged.
-  - With --git, creating and updating a page now commits it, authored with the
-    repository's git identity or "MCP::Wiki <mcp-wiki@localhost>" when none
-    is configured; get_section_history and restore_section now work,
-    including non-ASCII headings and text. Before, every commit failed and
-    the history tools could not read the repository. JSON::MaybeXS is no
-    longer a runtime requirement.
-  - update_paragraph and restore_section refuse pages that are not valid UTF-8
-    instead of replacing every non-UTF-8 byte with U+FFFD; the file is left
-    untouched, and reading such a page still works.
-  - restore_section no longer drops the page's final newline or the blank line
-    before the next heading, and a page restored from a version with CRLF
-    line endings no longer gets stray carriage returns.
-  - get_section_history lists only the commits that created or changed the
-    section; commits touching other pages or other sections are left out.
-  - Declare perl 5.020 as the minimum version, the floor MCP and
-    JSON::Schema::Tiny already require, and keep the signatures feature from
-    warning on perl 5.20 to 5.34.
-  - update_paragraph and restore_section keep the page's file permissions
-    instead of widening them (a 0600 page no longer becomes 0644), and refuse
-    a page the server may not write instead of replacing it.
-  - With --git, renaming and deleting a page are now committed (the old name
-    removed, the new one added) instead of failing silently and leaving the
-    repository out of step with the files.
-  - With --git, a given reason is the commit message as is (no repeated
-    "Reason:" trailer); without one the generated message is used.
-    restore_section's reason is described as what it is: passed on in the
-    restore event, not committed.
-  - on_change events name pages by their canonical path below the wiki root
-    (as list_pages shows them), also when the client used ./, .. or an
-    in-root symlink, so auto-commit stages the right file; each handler gets
-    its own copy of the event. bin/mcp-wiki no longer installs a debug
-    handler that warned on every change.
-  - Pages and directories with non-ASCII names work in every tool: list_pages
-    returns them as text instead of double-encoded, pages below a non-ASCII
-    directory are found again, error messages name them correctly, and names
-    that are not valid UTF-8 are skipped with a warning.
-  - list_pages skips a directory it cannot read (such as a root-only
+    line endings, update_paragraph writes the page back with CRLF
+    throughout, and an unchanged round trip stays byte-identical; TOC
+    previews and char counts no longer count the CRs, and an empty "# "
+    heading line no longer yields a heading named by a stray CR.
+  - update_paragraph refuses pages that are not valid UTF-8 instead of
+    replacing every non-UTF-8 byte with U+FFFD; the file stays untouched and
+    reading such a page still works. Both update_paragraph and
+    restore_section keep the page's file permissions (a 0600 page no longer
+    becomes 0644) and refuse a page the server may not write.
+  - get_paragraph and update_paragraph read the page once and work on that
+    snapshot, so a write landing in between can no longer make an edit hit
+    the wrong section. create_page and rename_page never replace a page that
+    appeared between their existence check and the write.
+  - Pages and directories with non-ASCII names work in every tool:
+    list_pages returns them as text instead of double-encoded, pages below a
+    non-ASCII directory are found again, error messages name them correctly,
+    and names that are not valid UTF-8 are skipped with a warning.
+    list_pages also skips a directory it cannot read (such as a root-only
     lost+found) with a warning instead of failing.
-  - A directory, FIFO or device named like a page is refused by every tool;
-    rename_page no longer moves such a directory.
-  - Tool errors no longer show absolute paths or Perl source locations; an
+  - create_page without content starts the page with the file name without
+    ".md" as its heading ("# c" for a/b/c.md), no longer the whole path.
+  - Tool errors name the problem instead of an opaque "Internal error" (an
+    unreadable page, a directory named like a page, a failing history lookup
+    or restore), show no absolute paths or Perl source locations, and an
     unknown heading_path is answered with the page's heading paths (up to
     50).
-  - create_page declares its optional reason; heading_path is described as
-    the full path from get_toc with an example; create_page and get_toc say
-    how they behave; every tool carries MCP annotations (read-only,
-    destructive, idempotent hints); serverInfo reports the distribution's
+  - get_toc and the section tools no longer slow down quadratically with the
+    number of headings (8000 headings: about 42 s down to under 1 s).
+  - Tool descriptions are complete: create_page declares its optional
+    reason, heading_path is described as the full path from get_toc with an
+    example, and every tool carries MCP annotations (read-only,
+    destructive, idempotent hints). serverInfo reports the distribution's
     version instead of 1.0.0.
-  - create_page and rename_page no longer replace a page that appeared
-    between their existence check and the write.
-  - get_section_history and restore_section find a page's history whatever
-    spelling the client uses (./a.md, sub/../a.md, an in-root symlink).
-  - With --git, a rename without reason is committed as "Renamed page: old ->
-    new" instead of "Renamed page: ".
-  - The POD documents every public method and lists the tools.
+  - Docker: one image, raudssus/mcp-wiki on Docker Hub, built and pushed by
+    the dzil bundle at release (the separate build-and-push script is gone).
+    It is built from the built distribution, as dzil build does it or by
+    hand with "dzil build" and "docker build" in the build directory, with
+    its dependencies in a layer of its own; no dzil, cpanm or unused library
+    goes into the image, it pins no PERL5LIB and exposes no port.
+  - Docker: the image contains Git::Raw, so --git and the history tools work
+    when the mounted directory is a git repository.
+  - Docker: the working directory is /wiki, so the default wiki root is the
+    mounted volume: "docker run -i --rm -v DIR:/wiki raudssus/mcp-wiki --git"
+    serves DIR. The entrypoint checks the --wiki-root it was given (the last
+    one), not just /wiki, and starts mcp-wiki without a shell in between, so
+    a path or argument containing spaces or quotes arrives intact.
+  - bin/mcp-wiki starts with "#!/usr/bin/env perl"; installs rewrite it to
+    the installing perl as before.
+  - The cpanfile matches the code: perl 5.020 is the declared minimum (what
+    MCP and JSON::Schema::Tiny already require), namespace::clean is a
+    runtime requirement, Git::Raw is recommended (history degrades cleanly
+    without it); Markdown::Perl, Syntax::Keyword::Try, JSON::MaybeXS (now
+    test only) and Digest::SHA (core) are no longer declared. t/05-cpanfile.t
+    keeps it in sync.
+  - Every module and bin/mcp-wiki carries its own $VERSION, the same as the
+    distribution's. The server no longer needs the signatures feature.
+  - MCP::Wiki::Git is a deprecated thin wrapper around
+    MCP::Wiki::Git::History. Removed unused internals: Document
+    update_content_hash and Git::History history_file (the
+    .mcp-wiki-history.json was never read or written).
+  - Docs: the README tool table lists the real arguments of every tool
+    (heading_path, not heading) and shows the Docker usage; the mcp-wiki POD
+    states what --git and --commit-reason-required do; every public method is
+    documented in the POD along with the tool list; PLAN.md is marked as the
+    original draft. t/06-readme-tools.t keeps README and POD in sync with the
+    tool schemas and Getopt options.
 
 0.001  2026-04-28
   - Initial release
