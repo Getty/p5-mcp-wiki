@@ -1,0 +1,16 @@
+---
+class: standard
+created: 2026-11-03T18:20:47Z
+id: 61
+priority: high
+status: backlog
+tags:
+- git
+- history
+- performance
+title: 'Bound get_section_history: it walks every commit and parses the page twice
+  per commit'
+updated: 2026-11-03T18:20:47Z
+---
+
+Found by p5-mcp-hub's k29 research (mounting mcp-wiki in mcp-hub as a shared store). On a 500-page wiki with 1001 commits get_section_history takes 5–8 s; every write is a commit, so a shared wiki hits mcp-hub's 60 s request timeout at roughly 12k commits. Skipping commits where the page's blob is unchanged from the parent took it from 8 s to 0.7 s in a scratch test. Also consider a limit argument.
