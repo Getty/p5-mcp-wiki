@@ -1,0 +1,17 @@
+---
+class: standard
+created: 2026-11-03T18:20:53Z
+id: 62
+priority: medium
+status: backlog
+tags:
+- startup
+- bug
+title: Fail at start-up on an unusable wiki_root (and optionally when --git cannot
+  be honoured)
+updated: 2026-11-03T19:27:41Z
+---
+
+Found by p5-mcp-hub's k29 research. A missing wiki_root starts normally and every call answers 'Invalid wiki_root: .', so a host like mcp-hub shows the upstream as healthy instead of failed. Refuse to start with a clear message. Consider an opt-in that also refuses to start when --git is requested but Git::Raw or the repository is missing, so a shared store never silently runs without history.
+
+From p5-mcp-hub (k37 design, 2026-11-03): mcp-hub expands nothing in a class entry's args and starts mcp-wiki unattended, so a bad wiki_root shows up there as a 'healthy' upstream whose every call fails. Hub users hit this directly — worth a higher priority.
