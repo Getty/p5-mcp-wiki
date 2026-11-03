@@ -6,7 +6,6 @@ use File::Find::Rule;
 
 my @pm_files = File::Find::Rule->file->name('*.pm')->in('lib');
 
-plan tests => scalar(@pm_files);
 
 for my $file (@pm_files) {
     (my $mod = $file) =~ s{lib/(.*)\.pm$}{$1};
@@ -14,3 +13,5 @@ for my $file (@pm_files) {
     eval "require $mod";
     is($@, '', "loaded $mod from $file");
 }
+
+done_testing;
