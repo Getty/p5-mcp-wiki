@@ -1,0 +1,23 @@
+---
+class: standard
+created: 2026-11-03T04:43:18Z
+id: 59
+priority: low
+status: backlog
+tags:
+- path-security
+- tests
+title: Absolute page names are silently wiki-relative — decide and pin
+updated: 2026-11-03T04:43:18Z
+---
+
+Found in the 0.002 release check (E2E run against the image raudssus/mcp-wiki:0.002).
+
+`rename_page from=Projekt.md to=/tmp/weg.md` succeeds and moves the page to `<wiki>/tmp/weg.md` (commit "Renamed page: Projekt.md -> tmp/weg.md"). Confinement holds — nothing is written outside the root — because `_walk_page` splits on `/+` and skips empty parts, so a leading slash is a no-op (lib/MCP/Wiki/Server.pm, `_walk_page`).
+
+Not a security defect, but undecided and unpinned:
+- t/36-server-path-security.t has no case with an absolute name (`/etc/passwd`, `/tmp/x.md`).
+- The tool descriptions say "relative to the wiki root" but not what happens with an absolute one.
+- A client that means a real absolute path gets a surprise file inside the wiki.
+
+Decide: refuse absolute names ("Path outside wiki root") or accept them as wiki-relative on purpose. Either way pin it in t/36 for every tool and say it in the page parameter description. Not a release blocker.
