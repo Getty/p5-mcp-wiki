@@ -1,0 +1,17 @@
+---
+class: standard
+created: 2026-11-03T18:21:07Z
+id: 63
+priority: medium
+status: backlog
+tags:
+- git
+- bug
+title: 'Git discovery uses the raw wiki_root: the git option silently turns off for
+  a root given as ~/…'
+updated: 2026-11-03T19:27:47Z
+---
+
+Found by p5-mcp-hub's k29 research. Pages are served from '~/wiki' (Path::Tiny expands ~), but MCP::Wiki::Git::History calls Git::Raw::Repository->discover($self->wiki_root) (lib/MCP/Wiki/Git/History.pm:54) with the literal string, so discovery fails and history/auto-commit are silently off with --git. Discover from the resolved path.
+
+From p5-mcp-hub (k37 design, 2026-11-03): mcp-hub passes class args unexpanded, so any hub config written with '~/wiki' silently loses git history. Hub users hit this directly — worth a higher priority.
