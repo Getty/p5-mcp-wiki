@@ -23,6 +23,10 @@ like( $warnings[0], qr/git/i, 'it names git' );
 like( $warnings[0], qr/without history and commits/, 'and what that means' );
 like( $warnings[0], qr/Git::Raw is required|Not a git repository/, 'and why' );
 is( $server->git_history, undef, 'there is no history' );
+is( $warnings[0],
+    "Git is not available, the wiki is served without history and commits: Not a git repository: $dir\n",
+    'the reason is exactly the message, wiki_root as given' );
+unlike( $warnings[0], qr/ at \S+ line \d+/, 'and carries no Perl file and line' );
 
 sub call {
     my ( $name, $args ) = @_;

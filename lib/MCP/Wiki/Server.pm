@@ -102,7 +102,7 @@ sub _build_git_history {
         $history;
     };
     unless ($history) {
-        my $reason = $@ =~ s/\s+\z//r;
+        my $reason = $self->_strip_location($@) =~ s/\s+\z//r;
         warn "Git is not available, the wiki is served without history and commits: $reason\n";
         return;
     }
@@ -383,6 +383,15 @@ sub _add_tool {
     );
 }
 
+# Perl's " at FILE line N." trailer, off every line of a message.
+sub _strip_location {
+    my ($self, $text) = @_;
+
+    $text =~ s/ at (?:(?! at ).)+? line \d+(?:, <[^>]*> (?:line|chunk) \d+)?\.$//mg;
+
+    return $text;
+}
+
 # An error as the model gets it. The messages come from croak, die and
 # Path::Tiny, so they carry Perl's " at FILE line N." and absolute paths. The
 # trailers go; the wiki root is cut from every path, which leaves the name
@@ -391,7 +400,7 @@ sub _add_tool {
 sub _error_text {
     my ($self, $text) = @_;
 
-    $text =~ s/ at (?:(?! at ).)+? line \d+(?:, <[^>]*> (?:line|chunk) \d+)?\.$//mg;
+    $text = $self->_strip_location($text);
     $text =~ s/\s+\z//;
 
     my @roots = grep { defined && length && Path::Tiny::path($_)->is_absolute }

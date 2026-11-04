@@ -96,8 +96,8 @@
     worktree gets commits and history: the repository is found from the wiki
     root upwards and page names stay relative to the wiki root. If --git
     cannot be honoured (Git::Raw missing, no repository around the wiki),
-    the server says so once at startup and goes on without git, instead of
-    warning on every write.
+    the server says so once at startup, without Perl's " at FILE line N.",
+    and goes on without git, instead of warning on every write.
   - restore_section writes the restored page, not a section pushed into one
     heading; it keeps the page's final newline and the blank line before the
     next heading, and a page restored from a CRLF version gets no stray
