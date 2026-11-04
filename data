@@ -1,0 +1,14 @@
+---
+class: standard
+created: 2026-11-04T01:45:32Z
+id: 66
+priority: medium
+status: backlog
+tags:
+- mcp
+- instructions
+title: Optional server instructions (e.g. --instructions FILE / instructions arg)
+updated: 2026-11-04T01:45:32Z
+---
+
+From p5-mcp-hub (k29, shared-knowledge-store setup). mcp-wiki sets no MCP 'instructions', which is where a server tells agents what it is for. For a wiki used as a shared store by many agents, the operator wants to say what belongs in it and how pages are named. mcp-hub forwards a server's instructions and /all combines them. Proposal: an optional instructions string (constructor arg, so a hub class entry can set it) and --instructions FILE on the CLI.
