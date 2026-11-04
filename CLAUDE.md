@@ -45,6 +45,7 @@ principle in the shared rule `getty-agent-delegation` (skilletor bundle
 |---|---|
 | Implement / refactor / debug, Docker | `mcp-wiki-worker` (default) |
 | Write or extend tests | `mcp-wiki-test-writer` |
+| Standalone binary: `scripts/binary-*`, `binary` keys, `binaries.yml`, README install section | `mcp-wiki-binary-worker` |
 | Commits, `Changes`, card → done, pre-release audit | `mcp-wiki-release-manager` |
 | Read-only research, audit, gap analysis | `mcp-wiki-worker` ("read-only, change nothing") |
 

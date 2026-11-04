@@ -17,12 +17,14 @@ tool closures), `Document.pm` and `TOC/Parser.pm` form one chain — the parser'
 |---|---|
 | Implement / refactor / debug behavior-relevant code, Docker | `mcp-wiki-worker` (default) |
 | Write/extend tests | `mcp-wiki-test-writer` |
+| Standalone binary: `scripts/binary-*`, `binary` keys, `binaries.yml`, README install section | `mcp-wiki-binary-worker` |
 | Commits, `Changes`, card → done, pre-release audit | `mcp-wiki-release-manager` |
 | Read-only research, audit, gap analysis | `mcp-wiki-worker` ("read-only, change nothing") |
 
 Behavior-relevant = runtime behavior, the MCP tool surface and its wire format,
 `heading_path` construction, TOC parsing, path validation, the git history/restore path,
-`on_change`, the Dockerfile and entrypoint, tests. Pure prose docs and `Changes` notes are not.
+`on_change`, the Dockerfile and entrypoint, the standalone binary's `scripts/binary-*`, `binary`
+keys and `binaries.yml`, tests. Pure prose docs and `Changes` notes are not.
 
 ## Release and deviations
 
