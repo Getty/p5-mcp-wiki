@@ -1,0 +1,32 @@
+---
+claimed_at: 2026-11-04T01:42:15Z
+claimed_by: mcp-wiki-worker
+class: standard
+completed: 2026-11-04T01:42:15Z
+created: 2026-11-03T06:15:26Z
+id: 60
+priority: low
+started: 2026-11-04T01:37:22Z
+status: done
+tags:
+- git
+- diagnostics
+title: Git-not-available startup warning carries Perl's 'at FILE line N.'
+updated: 2026-11-04T01:42:15Z
+---
+
+Found in the binary spike (Getty/mcp-wiki-binary-spike, packed with PAR::Packer).
+
+lib/MCP/Wiki/Server.pm:106 warns "Git is not available, the wiki is served without history and commits: $reason\n". $reason is the caught error and still ends with Perl's " at FILE line N." — in a pp binary that is the PAR cache path ($TMPDIR/par-<hex>/cache-<sha1>/...Server.pm line 58), in a CPAN install the absolute @INC path.
+
+Proposal: strip the location from $reason the way tool errors already are (see the comment near Server.pm:387 on Path::Tiny errors carrying " at FILE line N."), and pin the wording in t/62-git-startup-warning.t. Cosmetic, not a release blocker.
+
+Now Task 2 of docs/superpowers/plans/2026-11-03-binary-mcp-wiki.md; must land before the first release that ships binaries (binary users see the PAR cache path).
+
+t/62 extended: exact warning string + unlike / at \S+ line \d+/. RED: warning ends with ' at .../lib/MCP/Wiki/Server.pm line 101.' (Carp reports the caller, Server.pm, not History.pm). Same RED without Git::Raw.
+
+Server.pm: new _strip_location helper (regex moved out of _error_text), applied to the Git startup warning reason. prove -lr t/ and Git::Raw-less run green.
+
+Done: Git startup warning drops ' at FILE line N.' via shared _strip_location in Server.pm; t/62 green, full suite green with and without Git::Raw.
+
+Committed as 4ffdb40
