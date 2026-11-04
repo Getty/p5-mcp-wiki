@@ -1,0 +1,15 @@
+---
+class: standard
+created: 2026-11-04T01:42:48Z
+id: 65
+priority: medium
+status: backlog
+tags:
+- api
+- embedding
+title: Pin MCP::Wiki::Server->server as the embedding API and keep the constructor
+  cheap
+updated: 2026-11-04T01:42:48Z
+---
+
+From p5-mcp-hub (accepted design docs/superpowers/specs/2026-11-03-forked-class-workers-design.md, card k42 there): mcp-hub will mount MCP::Wiki::Server in-process and in forked workers through ->server, which returns the MCP::Server. The hub runs new() once at config build (to list tools) and once in every worker, so the constructor must stay cheap and free of side effects. Pin both with a test and POD so a refactor does not break the hub.
