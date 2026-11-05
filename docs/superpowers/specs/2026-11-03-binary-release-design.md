@@ -101,7 +101,7 @@ What the build has to do, learned the hard way:
 - A release created with the workflow's own `GITHUB_TOKEN` would not trigger workflows;
   `dzil release` uses the maintainer's personal token, which does (verified).
 - PAR extracts ~20–30 MB per version into `$TMPDIR/par-<user>/cache-<sha1>` (`%TEMP%` on
-  Windows) on first start and never cleans up. `PAR_GLOBAL_TMPDIR` moves it.
+  Windows) on first start and never cleans up. `PAR_GLOBAL_TMPDIR` moves it — to an existing directory only; PAR silently ignores a missing one (verified 2026-11-04, PAR::Packer 1.064).
 - The Windows binary carries Strawberry's preinstalled Net::SSLeay/Crypt::SSLeay/CryptX
   as dead weight (most of the 15 MB).
 - Linux glibc floor is 2.29: Debian 10 fails, Alpine (also with gcompat) fails.

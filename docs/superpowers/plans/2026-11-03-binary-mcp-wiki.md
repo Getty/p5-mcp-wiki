@@ -230,7 +230,7 @@ and `irm https://github.com/Getty/p5-mcp-wiki/releases/latest/download/install.p
 needs glibc 2.28 or newer, Alpine and older systems use the Docker image; macOS after a
 browser download: `xattr -d com.apple.quarantine mcp-wiki`; an MCP client entry using
 the installed path with `--wiki-root` and `--git`; the first start unpacks ~20–30 MB
-into the temp dir (`PAR_GLOBAL_TMPDIR` moves it); after a direct download, run
+into the temp dir (`PAR_GLOBAL_TMPDIR` moves it, to an existing directory only — PAR ignores a missing one silently); after a direct download, run
 `mcp-wiki --help` once before an MCP client starts several servers (k19 on the bundle
 board — the install scripts do this themselves).
 

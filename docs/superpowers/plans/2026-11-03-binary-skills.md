@@ -64,7 +64,7 @@ Content:
    directory only when it starts with `.` or `/`, Strawberry's preinstalled SSL modules
    as dead weight; Git::Raw 0.90: `zutil.h` patch on Xcode 16+, hide OpenSSL/libssh2
    headers (headers only on Intel macOS); `pp` misses runtime `require`s; the PAR cache
-   location and `PAR_GLOBAL_TMPDIR`; the k19 cold-cache race and the warm start after
+   location and `PAR_GLOBAL_TMPDIR` (existing directory only, a missing one is silently ignored) vs `PAR_GLOBAL_TEMP` (the exact cache dir); the k19 cold-cache race and the warm start after
    install; the release race and the draft → upload → publish fix; how to check runner
    labels and retirements.
 

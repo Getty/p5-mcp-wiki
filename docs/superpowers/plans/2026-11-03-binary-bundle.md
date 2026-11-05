@@ -344,7 +344,7 @@ activated → `prepare <cache dir>` → `cpanm --installdeps .` into that local 
 key: platform + perl version + sha256 of `META.json`'s prereqs + `prepare_key`) →
 per binary `pp` with `pp-args.pl` → `lib-gate.pl` → `require-gate.pl` → `verify` →
 artifact) → `smoke` (matrix `smoke`: Linux via `docker run` of the clean image with the
-unpacked tarball mounted, asserting no perl on `PATH` and no build perl; macOS/Windows
+unpacked tarball mounted, first deleting any system perl (`debian:*-slim` ships `perl-base` as Essential: `rm -f /usr/bin/perl /usr/bin/perl5*` in the throwaway container), then asserting no perl on `PATH` and no build perl; macOS/Windows
 on a runner without setup-perl) → `publish` (tag only; `publish.pl check`, `sums`,
 `render`, `gh release upload`, then `gh release edit --latest` when `latest=true`).
 Hygiene: workflow default `permissions: contents: read`, only `publish` writes;
