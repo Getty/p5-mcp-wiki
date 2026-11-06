@@ -1,0 +1,14 @@
+---
+class: standard
+created: 2026-11-06T02:43:06Z
+id: 68
+priority: low
+status: backlog
+tags:
+- release
+- dist
+title: docs/superpowers/ ships in the CPAN tarball
+updated: 2026-11-06T02:43:06Z
+---
+
+Found by the final review of the binary Tasks 1-4: the specs and plans under docs/superpowers/ (added in 86b881e) are gathered into the CPAN dist. Whether they belong there or get pruned in dist.ini is the maintainer's call; check at the next pre-release audit. Lane: mcp-wiki-release-manager.
