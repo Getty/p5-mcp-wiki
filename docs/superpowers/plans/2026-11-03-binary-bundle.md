@@ -36,7 +36,8 @@ Task 5 and Task 7 Step 5.
 - Build runners, pinned: `ubuntu-24.04` (+ container `almalinux:8` pinned by digest), `ubuntu-24.04-arm` (same container), `macos-15`, `macos-15-intel`, `windows-2025`.
 - Smoke cells: linux-x86_64 → `almalinux:8`, `almalinux:9`, `debian:bookworm-slim`; linux-arm64 → `almalinux:9`; macos-arm64 → `macos-26`; macos-x86_64 → `macos-26-intel`; windows-x86_64 → `windows-2022`.
 - Packing perl: 5.40.x built per leg, `cpanm` in its `bin`. Linux: `-Ud_crypt -Ud_crypt_r -Ui_crypt -Duseshrplib`; macOS: `MACOSX_DEPLOYMENT_TARGET=12.0`, exported for the whole leg (perl build, `prepare`, deps, `pp`) so a dist's own C builds honour it (mcp-hub's static OpenSSL); Windows: Strawberry Perl 5.40, ahead of Git Bash's perl in `PATH`.
-- Build-leg tools a `prepare` may rely on: `curl`, a C compiler, `make`, `tar`, `patch`, `unzip` (Linux: `dnf install` in the container; macOS: the runner image; Windows: Strawberry's `gcc`/`gmake`, Git Bash's tools).
+- Build-leg tools a `prepare` or `verify` may rely on: `curl`, a C compiler, `make`, `tar`, `patch`, `unzip`, `git` (Linux: `dnf install` in the container — `almalinux:8` ships none of `git`, `perl`, `unzip`; macOS: the runner image; Windows: Strawberry's `gcc`/`gmake`, Git Bash's tools). mcp-wiki's verify needs `git` for its history check.
+- `prepare` sees `GITHUB_ACTIONS=true` (a job `container:` passes it; a bare `docker run` would need `-e GITHUB_ACTIONS`): a dist's prepare may refuse to run anywhere else, as mcp-wiki's does. The local check on `dzil build` (Task 3) never runs `prepare`.
 - Every `pp` call runs with `PAR_VERBATIM=1`.
 - Linux glibc floor: the highest `GLIBC_x.y` in any packed object must be ≤ `2.28`.
 - `DZIL_BINARY_SKIP=1` skips the local build; CI sets it.

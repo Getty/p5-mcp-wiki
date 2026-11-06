@@ -15,6 +15,7 @@ lib/MCP/Wiki/TOC/Entry.pm    # value object; as_hash is the wire form of the TOC
 lib/MCP/Wiki/Git/History.pm  # Git::Raw: section history, restore, auto-commit
 lib/MCP/Wiki/Git.pm          # deprecated subclass of Git::History, unused by the server
 bin/mcp-wiki                 # CLI runner
+scripts/binary-*.sh          # standalone binary: prepare (CI build leg), verify, smoke
 t/                           # Test::More, tempdir-based
 ```
 
