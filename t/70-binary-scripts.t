@@ -7,9 +7,10 @@ use Path::Tiny qw( path tempdir );
 # scripts/binary-verify.sh (build machine) and scripts/binary-smoke.sh (clean
 # machine) judge a standalone binary by one MCP session. No binary is needed
 # here: a wrapper script that execs the Perl code stands in for it, and two
-# variants of it play the failures the scripts must catch. Opt-in against the
-# real Git::Raw, hermetic like t/42: the wrapped server and its git history
-# run for real, in tempdirs the scripts create themselves.
+# variants of it play the failures the scripts must catch. The verify/smoke
+# cases are opt-in against the real Git::Raw, hermetic like t/42: the wrapped
+# server and its git history run for real, in tempdirs the scripts create
+# themselves. The prepare cases run without it.
 my $home;
 BEGIN {
     $home = tempdir;
@@ -31,13 +32,16 @@ BEGIN {
         unless have_tool('bash');
 }
 
-my $root   = path(__FILE__)->absolute->parent->parent;
-my $lib    = $root->child('lib');
-my $bin    = $root->child( 'bin', 'mcp-wiki' );
-my $verify = $root->child( 'scripts', 'binary-verify.sh' );
-my $smoke  = $root->child( 'scripts', 'binary-smoke.sh' );
+my $root    = path(__FILE__)->absolute->parent->parent;
+my $lib     = $root->child('lib');
+my $bin     = $root->child( 'bin', 'mcp-wiki' );
+my $verify  = $root->child( 'scripts', 'binary-verify.sh' );
+my $smoke   = $root->child( 'scripts', 'binary-smoke.sh' );
 my $prepare = $root->child( 'scripts', 'binary-prepare.sh' );
-my $tmp    = tempdir;
+my $tmp     = tempdir;
+
+# the scripts call a bare `perl`: make it the perl running this test
+$ENV{PATH} = File::Spec->catdir( ( File::Spec->splitpath($^X) )[1] || '.' ) . ':' . ( $ENV{PATH} // '' );
 
 sub write_exe {
     my ( $name, $text ) = @_;
@@ -94,10 +98,10 @@ sub run {
 # The spawned server loads MCP::Wiki::Server before Git::Raw itself; this file
 # only needs to know that Git::Raw is there.
 SKIP: {
-    skip 'Git::Raw not installed (opt-in test against the real API)', 12
+    skip 'Git::Raw not installed (opt-in test against the real API)', 15
         unless eval { require Git::Raw; 1 };
     for my $tool (qw( sh git )) {
-        skip "$tool not found on PATH (the binary scripts need bash, sh and git)", 12
+        skip "$tool not found on PATH (the binary scripts need bash, sh and git)", 15
             unless have_tool($tool);
     }
 
@@ -120,8 +124,15 @@ SKIP: {
     {
         my ( $rc, $out ) = run( 'bash', "$verify", $degraded );
         is( $rc, 1, 'verify_fails_on_degrade_warning' );
-        like( $out, qr/^FAIL: /m, 'verify names the reason' );
+        like( $out, qr/^FAIL: .*serves without history/m, 'verify names the degrade as the reason' );
         unlike( $out, qr/^verify: OK/m, 'verify does not report OK' );
+    }
+
+    {
+        my ( $rc, $out ) = run( 'sh', "$smoke", $degraded );
+        is( $rc, 1, 'smoke_fails_on_degrade_warning' );
+        like( $out, qr/^FAIL: .*serves without history/m, 'smoke names the degrade as the reason' );
+        unlike( $out, qr/^smoke: OK/m, 'smoke does not report OK' );
     }
 
     {
@@ -138,6 +149,7 @@ SKIP: {
 {
     my ( $rc, $out ) = do {
         delete local $ENV{GITHUB_ACTIONS};
+        delete local $ENV{PERL_LOCAL_LIB_ROOT};    # a regressed gate stops at the local-lib check
         run( 'bash', "$prepare" );
     };
     is( $rc, 1, 'prepare_refuses_outside_ci' );
@@ -148,6 +160,7 @@ SKIP: {
     my $cache = $tmp->child('prepare-cache');    # does not exist yet
     my ( $rc, $out ) = do {
         delete local $ENV{GITHUB_ACTIONS};
+        delete local $ENV{PERL_LOCAL_LIB_ROOT};    # a regressed gate stops at the local-lib check
         run( 'bash', "$prepare", "$cache" );
     };
     is( $rc, 1, 'prepare_refuses_outside_ci_with_cache_dir' );

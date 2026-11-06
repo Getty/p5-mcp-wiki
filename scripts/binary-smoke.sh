@@ -4,7 +4,9 @@
 # One MCP session against a hand-laid git repository. Prints "smoke: OK" or
 # "FAIL: <reason>" and exits 1.
 
+# once the binary has run, every FAIL is preceded by the last 40 lines of its stderr
 fail() {
+  if [ -n "${err:-}" ] && [ -s "$err" ]; then tail -n 40 "$err" | sed 's/^/stderr: /'; fi
   printf 'FAIL: %s\n' "$*"
   exit 1
 }
@@ -41,10 +43,12 @@ out="$work/out.jsonl"
 err="$work/err.txt"
 "$bin" --wiki-root "$(native "$wiki")" --git <"$work/requests.jsonl" >"$out" 2>"$err"
 rc=$?
-[ "$rc" -eq 0 ] || fail "the binary exited $rc: $(head -n 1 "$err")"
+if [ "$rc" -ne 0 ]; then
+  fail "the binary exited $rc"
+fi
 
 if grep -q 'Git is not available' "$err"; then
-  fail "the binary runs without Git::Raw (stderr: $(head -n 1 "$err"))"
+  fail 'the binary serves without history (Git::Raw missing or the repository rejected)'
 fi
 
 # every stdout line is JSON-RPC, nothing else

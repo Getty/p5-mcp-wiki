@@ -10,6 +10,12 @@ fail() {
   exit 1
 }
 
+# the last 40 lines of a run's stderr, before the FAIL line that follows
+show_stderr() {
+  [ -s "$1" ] && tail -n 40 "$1" | sed 's/^/stderr: /'
+  return 0
+}
+
 [ $# -ge 1 ] || fail 'usage: binary-verify.sh <binary>'
 bin=${!#}
 [ -x "$bin" ] || fail "not an executable file: $bin"
@@ -83,25 +89,31 @@ PERL
 
 run_session() {    # $1 = label
   local label=$1 wiki="$work/wiki-$1"
-  git init -q "$wiki" || fail 'git init failed'
+  # pin the format: Git 3.0 defaults (reftable, SHA-256) are not readable by libgit2 1.5
+  git -c init.defaultObjectFormat=sha1 -c init.defaultRefFormat=files init -q "$wiki" || fail 'git init failed'
   local nwiki
   nwiki=$(native "$wiki")
   "$bin" --wiki-root "$nwiki" --git <"$work/requests.jsonl" >"$work/out-$label.jsonl" 2>"$work/err-$label.txt"
   local rc=$?
-  [ "$rc" -eq 0 ] || fail "$label start: the binary exited $rc: $(head -n 1 "$work/err-$label.txt")"
+  if [ "$rc" -ne 0 ]; then
+    show_stderr "$work/err-$label.txt"
+    fail "$label start: the binary exited $rc"
+  fi
 
   if grep -q 'Git is not available' "$work/err-$label.txt"; then
-    fail "$label start: the binary runs without Git::Raw (stderr: $(head -n 1 "$work/err-$label.txt"))"
+    show_stderr "$work/err-$label.txt"
+    fail "$label start: the binary serves without history (Git::Raw missing or the repository rejected)"
   fi
   local problems
   problems=$(perl "$work/check.pl" "$work/out-$label.jsonl") || {
+    show_stderr "$work/err-$label.txt"
     fail "$label start: $(printf '%s' "$problems" | tr '\n' ' ')"
   }
 
   local log
   log=$(git -C "$wiki" log --format=%s 2>/dev/null)
-  case $log in *'smoke: create page'*) ;; *) fail "$label start: git log lacks the create reason" ;; esac
-  case $log in *'smoke: update Alpha'*) ;; *) fail "$label start: git log lacks the update reason" ;; esac
+  case $log in *'smoke: create page'*) ;; *) show_stderr "$work/err-$label.txt"; fail "$label start: git log lacks the create reason" ;; esac
+  case $log in *'smoke: update Alpha'*) ;; *) show_stderr "$work/err-$label.txt"; fail "$label start: git log lacks the update reason" ;; esac
 }
 
 # a fresh PAR cache: the first start unpacks into it, the second reuses it

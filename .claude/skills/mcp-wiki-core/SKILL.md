@@ -173,7 +173,8 @@ registry and build path are the maintainer's decision.
 ## Verification
 
 `prove -lr t/` is canonical; never the network or a real wiki. With `Git::Raw` the real-API
-files run (t/42, t/49–t/51, t/54, t/56, t/63); without it they skip — keep both green. Guards:
+files run (t/42, t/49–t/51, t/54, t/56, t/63, t/70-binary-scripts.t); without it they skip — keep both green. Guards:
 t/05 cpanfile, t/06 README table and bin POD, t/07 dead code, t/34 and t/46 schemas and
 annotations, t/36 confinement, t/69 `$VERSION` in every module. A new or changed tool needs
-its README row (t/06), annotations (t/46) and t/36 coverage.
+its README row (t/06), annotations (t/46) and t/36 coverage; `scripts/binary-verify.sh` and
+`scripts/binary-smoke.sh` pin the tool count (15) and the tool names.
