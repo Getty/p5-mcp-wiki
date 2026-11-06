@@ -1,0 +1,15 @@
+---
+class: standard
+created: 2026-11-06T02:43:01Z
+id: 67
+priority: low
+status: backlog
+tags:
+- git
+- history
+title: Git history on reftable or SHA-256 repositories, and the swallowed Git::Raw
+  load error
+updated: 2026-11-06T02:43:01Z
+---
+
+Found by the final review of the binary Tasks 1-4 (ledger .superpowers/sdd/2026-11-03-binary-mcp-wiki). (1) Git::Raw 0.90 bundles libgit2 1.5, which cannot open a repository created with init.defaultRefFormat=reftable or init.defaultObjectFormat=sha256 (Git 3.0 announced defaults); the server then degrades with "Not a git repository" — misleading for a valid repo. Decide: detect and say so, or document. (2) MCP::Wiki::Git::History wraps require Git::Raw in eval and reports only "Git::Raw is required"; a binary or install whose Git::Raw is present but fails to load hides the real load error. Lane: mcp-wiki-worker.
