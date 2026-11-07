@@ -1,0 +1,46 @@
+---
+claimed_at: 2026-11-07T00:32:43Z
+claimed_by: mcp-wiki-binary-worker
+class: standard
+created: 2026-11-03T20:33:57Z
+id: 64
+priority: medium
+started: 2026-11-04T01:37:17Z
+status: in-progress
+tags:
+- binary
+- release
+title: Ship mcp-wiki as standalone binaries (first consumer of the bundle's binary
+  form)
+updated: 2026-11-07T00:32:43Z
+---
+
+Plan: docs/superpowers/plans/2026-11-03-binary-mcp-wiki.md (Tasks 1-7). Spec: docs/superpowers/specs/2026-11-03-binary-release-design.md.
+
+Order: bundle Tasks 1-6 (p5-dist-zilla-pluginbundle-author-getty k20) -> this plan Tasks 1-6 -> bundle Task 7 (throwaway end-to-end with mcp-wiki) -> maintainer go for binary-v1 + bundle CPAN release -> Task 7 here (first real run, maintainer go). k60 is Task 2 and must land before the first binary release.
+
+Task 1 committed in 197ab1b: mcp-wiki-binary-worker agent + lane rows
+
+Task 3: t/70-binary-scripts.t written, RED: scripts/binary-verify.sh and binary-smoke.sh missing, 10 of 12 assertions fail (exit 127/2 instead of 0/1)
+
+Task 3: scripts/binary-verify.sh and binary-smoke.sh done and staged; t/70 12/12, prove -lr t/ green with and without Git::Raw, shellcheck clean. Report: .superpowers/sdd/2026-11-03-binary-mcp-wiki/task-3-report.md
+
+Task 3 fix round 1: binary-verify.sh checks both reasons inside the id 5 answer only; whole-stdout grep dropped; t/70, full suite, shellcheck green, mutation fails as expected.
+
+Task 3 committed in 324ecd7: scripts/binary-verify.sh, scripts/binary-smoke.sh, t/70-binary-scripts.t (review + 1 fix round, re-review clean)
+
+Task 4: RED test in t/70-binary-scripts.t (cases 13-17, exit 1 + 'only on a CI runner' + empty cache dir); fails 127 without scripts/binary-prepare.sh, with and without Git::Raw
+
+Task 4: scripts/binary-prepare.sh written, staged 100755, not committed. t/70 17/17; prove -lr t/ green with and without Git::Raw; shellcheck clean. almalinux:8 container proof: SSL/SSH2 disabled, Raw.so links no libssl/libssh2/libcrypto, second run takes the tarball from the cache and skips the build. Report: .superpowers/sdd/2026-11-03-binary-mcp-wiki/task-4-report.md
+
+Task 4 fix round 1: binary-prepare.sh now rebuilds a skipped Git::Raw built with SSH (or HTTPS on Linux) and fails unless build.log reports SSL and SSH2 disabled. almalinux:8 runs: S6 bad lib rebuilt to ssh=0 https=0, S7 missing log -> FAIL. t/70 17/17, prove -lr t/ green with and without Git::Raw, shellcheck clean. Report: .superpowers/sdd/2026-11-03-binary-mcp-wiki/task-4-fix1-binary-report.md
+
+Task 4 committed in 73f039e: scripts/binary-prepare.sh, t/70-binary-scripts.t (review + 1 fix round, re-review clean). Tasks 1-4 done; 5-7 wait for the bundle (bundle k20).
+
+Final fix wave: serves-without-history wording, git init format pinned, stderr tail before FAIL, mcp-wiki-core skill lines; shellcheck/dash/prove green. Proposed subject: Harden the binary verify and smoke failure output
+
+Final review of Tasks 1-4 clean after one fix wave: 4a038d0 (scripts/t70/skill), 9fbf588 (docs). Tasks 5-7 wait for the bundle (bundle k20).
+
+2026-11-07 Run 2 (Tasks 5–7) started. Bundle Tasks 0–6 done on bundle branch binary-form (6bc9c40..d9ec127, local). From the bundle report: (1) no mcp-wiki release before the tag binary-v1 and the bundle on CPAN — binaries.yml pins @binary-v1; both releases are one coordinated event (bundle Task 8). (2) Before the first release, one workflow_dispatch probe on the default branch (empty tag) seeds the perl/prepare/local-lib caches; a tag run restores only default-branch or same-tag caches, a cold leg runs close to the 60-minute timeout. (3) For the README (Task 6): selecting a binary under iex needs '& ([scriptblock]::Create((irm …/install.ps1))) <name>'; default dir %LOCALAPPDATA%\Programs\MCP-Wiki; env MCP_WIKI_*-style VERSION/INSTALL_DIR/PLATFORM/BASE_URL per the bundle's install.ps1; PAR_GLOBAL_TMPDIR only for an existing directory. (4) mcp-wiki --help with stdin at EOF exits after ~1 s (bundle lib-gate relies on it) — checked.
+
+Task 5 done: dist.ini binary keys, binaries.yml caller, ci.yml DZIL_BINARY_SKIP, t/09-binary.t committed in 354c84d; PERL5LIB prepend fix and CLAUDE.md build command in 2efd4fc. k64 stays in progress (Tasks 1-7).
