@@ -55,7 +55,7 @@ it. Never `git commit`: report what changed and why, plus a proposed commit subj
 - **Write tools only against tempdirs**, never the checkout or `$HOME`; `wiki_root`
   defaults to `.`.
 - **Until the bundle is released** with the binary form, build with the development
-  bundle: `PERL5LIB=$HOME/dev/p5-dist-zilla-pluginbundle-author-getty/lib`. Never install
+  bundle: `PERL5LIB=$HOME/dev/p5-dist-zilla-pluginbundle-author-getty/lib:$PERL5LIB`. Never install
   it over the maintainer's bundle.
 - **Containers on this machine:** `docker` talks to rootless podman through
   `DOCKER_HOST`; shellcheck runs as

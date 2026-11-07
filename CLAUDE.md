@@ -27,7 +27,7 @@ A section is addressed by its `heading_path` (`Intro#Background`), never by line
 prove -lr t/            # canonical — recursive; plain `prove -l t/` silently skips subdirectories
 prove -lv t/10-toc.t    # single test
 PERL5OPT=-MTest::Without::Module=Git::Raw prove -lr t/   # the same without Git::Raw
-DZIL_DOCKER_API_SKIP=1 dzil build   # distribution only; plain `dzil build` also builds the image
+DZIL_DOCKER_API_SKIP=1 DZIL_BINARY_SKIP=1 dzil build   # distribution only; plain `dzil build` also builds the image and packs a check binary
 ```
 
 `Git::Raw` is optional (`recommends`): with it the real-API history tests run, without it

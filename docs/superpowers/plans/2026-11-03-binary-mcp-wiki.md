@@ -35,7 +35,7 @@ section → `mcp-wiki-binary-worker` once Task 1 exists (k60 → `mcp-wiki-worke
 - No change to runtime behaviour, tool surface or `heading_path` (k60 changes only a warning's wording).
 - The suite stays green with and without Git::Raw (`PERL5OPT=-MTest::Without::Module=Git::Raw prove -lr t/`).
 - Write tools only against tempdirs, never the checkout or `$HOME`.
-- Until the bundle is released, build with the development bundle: `PERL5LIB=$HOME/dev/p5-dist-zilla-pluginbundle-author-getty/lib`. Never install it over the maintainer's bundle.
+- Until the bundle is released, build with the development bundle: `PERL5LIB=$HOME/dev/p5-dist-zilla-pluginbundle-author-getty/lib:$PERL5LIB`. Never install it over the maintainer's bundle.
 - Pushes, tags, `dzil release`, public repos: maintainer's explicit go only.
 
 ## Review Focus
@@ -210,7 +210,7 @@ binary_smoke = scripts/binary-smoke.sh
 - [ ] **Step 2:** `prove -lv t/09-binary.t` — FAIL.
 - [ ] **Step 3: Implement** (mcp-wiki-binary-worker).
 - [ ] **Step 4:** `prove -lr t/` — PASS. Then the tarball check with the development
-  bundle: `PERL5LIB=$HOME/dev/p5-dist-zilla-pluginbundle-author-getty/lib DZIL_DOCKER_API_SKIP=1 dzil build`
+  bundle: `PERL5LIB=$HOME/dev/p5-dist-zilla-pluginbundle-author-getty/lib:$PERL5LIB DZIL_DOCKER_API_SKIP=1 dzil build`
   — the local binary check runs (pp, verify, smoke against `MCP-Wiki-<v>-binaries/mcp-wiki`)
   and passes; `tar tzf MCP-Wiki-*.tar.gz | grep -c 'scripts/binary-'` prints `3`; the
   built `META.json` `x_binaries` equals the shape in bundle plan Task 2 with the values
