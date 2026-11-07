@@ -175,6 +175,9 @@
     documented in the POD along with the tool list; PLAN.md is marked as the
     original draft. t/06-readme-tools.t keeps README and POD in sync with the
     tool schemas and Getopt options.
+  - Binary: dist.ini declares the standalone mcp-wiki binary (with Git::Raw)
+    to the author bundle, and a binaries workflow builds it for the GitHub
+    release.
 
 0.001  2026-04-28
   - Initial release
