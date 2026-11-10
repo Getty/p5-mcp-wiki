@@ -2,6 +2,96 @@
 
 Markdown wiki MCP server with TOC extraction, paragraph-level editing, and git history.
 
+## Install the binary
+
+Every GitHub release carries a standalone `mcp-wiki` for Linux, macOS and
+Windows, with Perl and Git::Raw inside. Install it with
+
+```bash
+curl -fsSL https://github.com/Getty/p5-mcp-wiki/releases/latest/download/install.sh | sh
+```
+
+or in PowerShell
+
+```powershell
+irm https://github.com/Getty/p5-mcp-wiki/releases/latest/download/install.ps1 | iex
+```
+
+The Linux binaries run on glibc 2.28 or newer (they are built on AlmaLinux 8);
+on Alpine (musl) and older systems use the
+[Docker image](#install-with-docker-no-perl-required).
+
+The installer downloads `SHA256SUMS` and verifies every binary before it
+installs anything, runs `mcp-wiki --help` once to unpack it (see below), and
+tells you when the target directory is not in your `PATH`. It reads
+
+- `MCP_WIKI_VERSION`: install this version instead of the latest,
+- `MCP_WIKI_INSTALL_DIR`: the target directory, default `~/.local/bin`, in
+  PowerShell `%LOCALAPPDATA%\Programs\MCP-Wiki`,
+- `MCP_WIKI_PLATFORM` and `MCP_WIKI_BASE_URL`: the platform instead of the
+  detected one, the releases URL instead of this repository's.
+
+With `curl | sh` the variable belongs on the `sh` side of the pipe; in
+PowerShell set it first:
+
+```bash
+curl -fsSL https://github.com/Getty/p5-mcp-wiki/releases/latest/download/install.sh | MCP_WIKI_INSTALL_DIR=/opt/bin sh
+```
+
+```powershell
+$env:MCP_WIKI_INSTALL_DIR = 'C:\Tools'
+irm https://github.com/Getty/p5-mcp-wiki/releases/latest/download/install.ps1 | iex
+```
+
+Both scripts also take the names of the binaries to install, `sh -s --
+mcp-wiki` or in PowerShell `& ([scriptblock]::Create((irm URL))) mcp-wiki` with
+the URL above; without names they install all of them, here `mcp-wiki`.
+
+To download by hand: a release holds `mcp-wiki-VERSION-PLATFORM` for
+`linux-x86_64`, `linux-arm64`, `macos-arm64`, `macos-x86_64` and
+`windows-x86_64` (with `.exe`), and `SHA256SUMS` with the checksums of all of
+them. Check the file under its own name, then install it as `mcp-wiki`:
+
+```bash
+v=VERSION         # the release, as on the releases page
+p=linux-x86_64    # or linux-arm64, macos-arm64, macos-x86_64
+a=mcp-wiki-$v-$p
+curl -fsSLO "https://github.com/Getty/p5-mcp-wiki/releases/download/$v/$a"
+curl -fsSLO "https://github.com/Getty/p5-mcp-wiki/releases/download/$v/SHA256SUMS"
+grep " $a\$" SHA256SUMS | sha256sum -c &&    # macOS: shasum -a 256 -c
+  chmod +x "$a" && mv "$a" ~/.local/bin/mcp-wiki    # or another dir in PATH
+```
+
+On Windows compare `(Get-FileHash mcp-wiki-VERSION-windows-x86_64.exe).Hash`
+with the file's line in `SHA256SUMS`. On macOS a file downloaded with a
+browser is quarantined; `xattr -d com.apple.quarantine mcp-wiki` releases it
+(the installer and `curl` set no quarantine).
+
+An MCP client starts the binary by its full path:
+
+```json
+{
+  "mcpServers": {
+    "wiki": {
+      "command": "/home/you/.local/bin/mcp-wiki",
+      "args": ["--wiki-root", "/path/to/wiki", "--git"]
+    }
+  }
+}
+```
+
+On Windows `command` is the full path of `mcp-wiki.exe`, backslashes doubled.
+Git::Raw is inside the binary, so `--git` commits every change and serves the
+history tools without Perl or git installed; the wiki root has to be, or lie
+in, a git repository, as described under [Configuration](#configuration).
+
+The first start unpacks the bundled Perl and modules, a few tens of megabytes,
+into the temp directory; later starts reuse them. `PAR_GLOBAL_TMPDIR` set to
+an existing directory puts them there instead (for an MCP client, in its
+server entry's `env`). After a download by hand, run `mcp-wiki --help` once
+before an MCP client starts several servers at the same time; the install
+scripts do this themselves.
+
 ## Install with Docker (no Perl required)
 
 ```bash
