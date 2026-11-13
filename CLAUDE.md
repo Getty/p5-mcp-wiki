@@ -39,7 +39,7 @@ Known defects and product proposals are karr cards (`karr list`).
 ## Delegation
 
 Delegate behavior-relevant code to the right agent instead of touching it yourself —
-principle in the shared rule `getty-agent-delegation` (skilletor bundle
+principle in the shared rule `agent-delegation` (skilletor bundle
 `getty-cpan-dist@getty`), lanes in `.claude/rules/mcp-wiki-rules.md`.
 
 | Task | Agent |
