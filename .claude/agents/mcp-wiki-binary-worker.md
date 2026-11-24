@@ -2,13 +2,12 @@
 name: mcp-wiki-binary-worker
 description: "Worker for mcp-wiki's standalone binary — the per-dist part of the [@Author::GETTY] bundle's binary release form: scripts/binary-* (prepare, verify, smoke), the binary* keys in dist.ini, .github/workflows/binaries.yml and the README install section. Leaves a commit-ready tree; never commits — commits belong to mcp-wiki-release-manager."
 model: inherit
-briefing:
-  skills:
-    - mcp-wiki-core
-    - perl-par-binary-release
-    - getty-perl-release-author-getty
-    - getty-perl-core
-    - kanban-issues-karr-ticket
+skills:
+  - mcp-wiki-core
+  - perl-par-binary-release
+  - getty-perl-release-author-getty
+  - getty-perl-core
+  - kanban-issues-karr-ticket
 ---
 
 You are the `mcp-wiki-binary-worker` for **MCP::Wiki**, the stdio MCP server that edits

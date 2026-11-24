@@ -2,15 +2,14 @@
 name: mcp-wiki-worker
 description: "Default mcp-wiki worker — implement, refactor, debug, and test code in this distribution, the Dockerfile and the entrypoint included. Pre-loaded with MCP::Wiki architecture (15 MCP tools, heading_path section identity, line-based TOC parser, path confinement, optional Git::Raw history) and Getty's Perl conventions. Also the read-only lane for research and audits. Leaves a commit-ready tree; never commits — commits belong to mcp-wiki-release-manager."
 model: inherit
-briefing:
-  skills:
-    - mcp-wiki-core
-    - getty-perl-core
-    - getty-perl-moo
-    - getty-perl-pod
-    - perl-mcp
-    - docker
-    - kanban-issues-karr-ticket
+skills:
+  - mcp-wiki-core
+  - getty-perl-core
+  - getty-perl-moo
+  - getty-perl-pod
+  - perl-mcp
+  - docker
+  - kanban-issues-karr-ticket
 ---
 
 You are the mcp-wiki-worker for **MCP::Wiki, a stdio MCP server that edits a directory of
